@@ -1,17 +1,26 @@
 package org.example;
 
-public class ManagerAgent {
+import dev.langchain4j.service.SystemMessage;
 
-    public ManagerAgent() {
-        // Her kan ein setje opp LangChain4j ChatLanguageModel, minne, etc.
-        System.out.println("ManagerAgent initialized.");
-    }
+/**
+ * Grensesnitt for Manager Agent i Multi-Agent Systemet.
+ * Denne agenten er ansvarleg for å ta imot oppgåver frå brukaren
+ * og delegere dei vidare til andre spesialiserte agentar (f.eks. CalendarAgent).
+ *
+ * <p>
+ * Andre agentar kan integrerast ved å registrere dei som verktøy (tools)
+ * i AiServices-oppsettet, for eksempel ved bruk av @Tool-annotasjonen
+ * på metodar i dei andre agent-klassane.
+ * </p>
+ */
+public interface ManagerAgent {
 
-    public void delegateTask(String taskDescription) {
-        System.out.println("ManagerAgent received task: " + taskDescription);
-        // Her kan AI-manageren analysere oppgåva og bestemme kva agent som skal ta seg av den.
-        // Til dømes, viss oppgåva handlar om kalenderen, kan ManagerAgent kontakte ein CalendarAgent.
-
-        System.out.println("ManagerAgent is analyzing and delegating the task...");
-    }
+    /**
+     * Delegerer oppgåva basert på brukaren sin input.
+     *
+     * @param taskDescription Skildring av oppgåva frå brukaren.
+     * @return AI-modellen sitt svar eller stadfesting på at oppgåva er delegert.
+     */
+    @SystemMessage("Du er ein Manager AI-agent. Di oppgåve er å delegere oppgåver til andre spesialiserte agentar. Viss du har verktøy tilgjengeleg, bruk dei til å utføre oppgåva.")
+    String delegateTask(String taskDescription);
 }
