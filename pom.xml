@@ -7,6 +7,13 @@
   <name>Archetype - AI-manager</name>
   <url>http://maven.apache.org</url>
 
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.4.7</version>
+    <relativePath/> <!-- lookup parent from repository -->
+  </parent>
+
   <properties>
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
@@ -14,6 +21,10 @@
   </properties>
 
   <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
     <dependency>
       <groupId>dev.langchain4j</groupId>
       <artifactId>langchain4j</artifactId>
@@ -26,7 +37,7 @@
     </dependency>
     <dependency>
       <groupId>dev.langchain4j</groupId>
-      <artifactId>langchain4j-open-ai</artifactId>
+      <artifactId>langchain4j-google-ai-gemini</artifactId>
       <version>0.36.2</version>
     </dependency>
     <dependency>
