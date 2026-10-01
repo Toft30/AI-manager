@@ -1,0 +1,125 @@
+:root {
+    --bg-color: #f4f4f9;
+    --text-color: #333;
+    --primary-color: #4CAF50;
+    --box-bg: #fff;
+    --status-mottatt: #6c757d;
+    --status-pagaande: #007bff;
+    --status-fullfort: #28a745;
+    --status-feila: #dc3545;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+header h1 {
+    text-align: center;
+    color: var(--text-color);
+}
+
+.task-input {
+    background: var(--box-bg);
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+}
+
+input[type="text"] {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+.hidden {
+    display: none;
+}
+
+#loadingIndicator {
+    margin-top: 10px;
+    color: var(--status-pagaande);
+    font-style: italic;
+}
+
+.task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.task-card {
+    background: var(--box-bg);
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.task-card h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: white;
+    font-weight: bold;
+}
+
+/* Status-fargar */
+.MOTTATT { background-color: var(--status-mottatt); }
+.PÅGÅANDE { background-color: var(--status-pagaande); }
+.FULLFØRT { background-color: var(--status-fullfort); }
+.FEILA { background-color: var(--status-feila); }
+
+.subtasks-container {
+    margin-top: 15px;
+    padding-left: 15px;
+    border-left: 3px solid #eee;
+}
+
+.subtask-item {
+    margin-bottom: 8px;
+    padding: 10px;
+    background: #fdfdfd;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
