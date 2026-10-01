@@ -8,3 +8,6 @@
 /dataSources.local.xml
 # Editor-based HTTP Client requests
 /httpRequests/
+# Skjul hemmelege eigenskapar og nøklar
+src/main/resources/application.properties
+*.env
