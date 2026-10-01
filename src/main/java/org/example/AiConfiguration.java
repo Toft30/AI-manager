@@ -36,13 +36,14 @@ public class AiConfiguration {
      * Knyttar ManagerAgent-grensesnittet til ChatLanguageModel og registrerer verktøy.
      * @param chatLanguageModel Modellen som skal brukast.
      * @param calendarAgent CalendarAgent-verktøyet for å planleggje møter.
+     * @param taskUpdaterTool Verktøyet for å oppdatere task-status.
      * @return Ein ferdig konfigurert ManagerAgent.
      */
     @Bean
-    public ManagerAgent managerAgent(ChatLanguageModel chatLanguageModel, CalendarAgent calendarAgent) {
+    public ManagerAgent managerAgent(ChatLanguageModel chatLanguageModel, CalendarAgent calendarAgent, TaskUpdaterTool taskUpdaterTool) {
         return AiServices.builder(ManagerAgent.class)
                 .chatLanguageModel(chatLanguageModel)
-                .tools(calendarAgent)
+                .tools(calendarAgent, taskUpdaterTool)
                 .build();
     }
 }
