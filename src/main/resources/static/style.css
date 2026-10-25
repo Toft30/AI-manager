@@ -107,6 +107,11 @@ button:hover {
 .FULLFØRT { background-color: var(--status-fullfort); }
 .FEILA { background-color: var(--status-feila); }
 
+.task-result {
+    white-space: pre-wrap;
+    margin: 10px 0 0;
+}
+
 .subtasks-container {
     margin-top: 15px;
     padding-left: 15px;
