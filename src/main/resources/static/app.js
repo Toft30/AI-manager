@@ -16,8 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
         sendTaskBtn.disabled = true;
         loadingIndicator.classList.remove("hidden");
 
-        // Kall backend med URL-param (avhengig av korleis the RestController er skrevet)
-        fetch(`/api/task?taskDescription=${encodeURIComponent(desc)}`)
+        fetch(`/api/task?task=${encodeURIComponent(desc)}`)
             .then(response => response.text())
             .then(data => {
                 taskInput.value = "";
@@ -58,11 +57,18 @@ document.addEventListener("DOMContentLoaded", () => {
             taskCard.className = "task-card";
 
             const header = document.createElement("div");
-            header.innerHTML = `
-                <h3>#${task.id} - ${task.description}</h3>
-                <span class="status-badge ${task.status}">${task.status}</span>
-            `;
+            const title = document.createElement("h3");
+            title.textContent = `#${task.id} - ${task.description}`;
+            header.appendChild(title);
+            header.appendChild(statusBadge(task.status));
             taskCard.appendChild(header);
+
+            if (task.result) {
+                const result = document.createElement("p");
+                result.className = "task-result";
+                result.textContent = task.result;
+                taskCard.appendChild(result);
+            }
 
             if (task.subTasks && task.subTasks.length > 0) {
                 const subTasksDiv = document.createElement("div");
@@ -75,10 +81,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 task.subTasks.forEach(sub => {
                     const subItem = document.createElement("div");
                     subItem.className = "subtask-item";
-                    subItem.innerHTML = `
-                        <span>${sub.description}</span>
-                        <span class="status-badge ${sub.status}">${sub.status}</span>
-                    `;
+                    const subDesc = document.createElement("span");
+                    subDesc.textContent = sub.description;
+                    subItem.appendChild(subDesc);
+                    subItem.appendChild(statusBadge(sub.status));
                     subTasksDiv.appendChild(subItem);
                 });
 
@@ -87,5 +93,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
             taskList.appendChild(taskCard);
         });
+    }
+
+    function statusBadge(status) {
+        const badge = document.createElement("span");
+        badge.className = `status-badge ${status}`;
+        badge.textContent = status;
+        return badge;
     }
 });
