@@ -16,7 +16,7 @@ public class AiConfiguration {
     @Value("${gemini.api.key:}")
     private String apiKey;
 
-    @Value("${gemini.model:gemini-2.5-flash}")
+    @Value("${gemini.model:gemini-3.8-flash}")
     private String modelName;
 
     /**
