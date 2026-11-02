@@ -10,7 +10,7 @@ Code comments, Javadoc, log messages, enum values and UI text are written in Nor
 
 ## Commands
 
-There is no Maven wrapper (`mvnw`) checked in; use a system `mvn`.
+There is no Maven wrapper (`mvnw`) checked in, and `mvn` is not on PATH on the dev machine; use IntelliJ's bundled Maven (`C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.2\plugins\maven\lib\maven3\bin\mvn`).
 
 - Build: `mvn package`
 - Run: `mvn spring-boot:run` (serves on http://localhost:8080)
@@ -26,7 +26,8 @@ All classes live flat in `org.example` under `src/main/java`.
 
 - **`AiConfiguration`** wires the LLM: builds a `GoogleAiGeminiChatModel` (model from `gemini.model`, default `gemini-2.5-flash`) and creates the `ManagerAgent` bean via `AiServices.builder(...).tools(...)`.
 - **`ManagerAgent`** is an interface only — LangChain4j generates the implementation. Its `@SystemMessage` defines the manager's delegation behavior.
-- **Sub-agents** (currently only `CalendarAgent`, a stub) are Spring `@Component`s with `@Tool`-annotated methods. To add a new sub-agent: create the component, then inject it into `AiConfiguration.managerAgent(...)` and add it to `.tools(...)`. The LLM decides which tool to call based on the `@Tool` description.
+- **`CalendarAgent`** talks to the real Google Calendar API (tools: `getCurrentDateTime`, `scheduleMeeting`, `listMeetings`, `deleteMeeting`). Tools return error text instead of throwing, so the LLM can report failures. The Calendar client is created lazily on first tool call; if `tokens/` has no stored grant, it runs the OAuth installed-app flow (opens a browser, callback on port 8888) and blocks that HTTP request until the user logs in. Needs `credentials.json` (OAuth client of type "Desktop app") in the project root — both it and `tokens/` are gitignored. Settings: `google.calendar.*` in `application.properties`.
+- **Sub-agents** are Spring `@Component`s with `@Tool`-annotated methods. To add a new sub-agent: create the component, then inject it into `AiConfiguration.managerAgent(...)` and add it to `.tools(...)`. The LLM decides which tool to call based on the `@Tool` description.
 - **`TaskController`** exposes `GET /api/task?task=...` (synchronous: saves a `Task` as `MOTTATT` → `PÅGÅANDE`, calls the agent, then stores the result as `FULLFØRT` or `FEILA`) and `GET /api/tasks` (list all).
 - **`Task` / `TaskRepository` / `TaskStatus`**: JPA entity + Spring Data repository. `TaskStatus` names are used directly as CSS class names in the dashboard, so renaming an enum value requires updating `static/style.css`/`app.js`.
 - **Frontend** (`src/main/resources/static/`): plain HTML/CSS/JS, no build step. `app.js` polls `/api/tasks` every 3 seconds and submits new tasks via `/api/task`.

@@ -21,6 +21,9 @@ public interface ManagerAgent {
      * @param taskDescription Skildring av oppgåva frå brukaren.
      * @return AI-modellen sitt svar eller stadfesting på at oppgåva er delegert.
      */
-    @SystemMessage("Du er ein Manager AI-agent. Di oppgåve er å delegere oppgåver til andre spesialiserte agentar. Viss du har verktøy tilgjengeleg, bruk dei til å utføre oppgåva.")
+    @SystemMessage("Du er ein Manager AI-agent. Di oppgåve er å delegere oppgåver til andre spesialiserte agentar. "
+            + "Viss du har verktøy tilgjengeleg, bruk dei til å utføre oppgåva. "
+            + "Før du tolkar relative datoar som «i morgon» eller «neste veke», hent dagens dato med getCurrentDateTime. "
+            + "Svar på same språk som brukaren.")
     String delegateTask(String taskDescription);
 }
