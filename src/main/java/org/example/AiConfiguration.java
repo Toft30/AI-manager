@@ -24,6 +24,9 @@ public class AiConfiguration {
     @Value("${gemini.timeout-seconds:60}")
     private long timeoutSeconds;
 
+    @Value("${gemini.max-retries:3}")
+    private int maxRetries;
+
     /**
      * Set opp ChatModel med Google Gemini.
      * @return Ein konfigurert ChatModel-instans.
@@ -38,7 +41,7 @@ public class AiConfiguration {
                 .apiKey(apiKey)
                 .modelName(modelName)
                 .timeout(Duration.ofSeconds(timeoutSeconds))
-                .maxRetries(1)
+                .maxRetries(maxRetries)
                 .build();
     }
 
