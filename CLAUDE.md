@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-AI-Manager is a small Spring Boot 3.4 (Java 17) multi-agent prototype. A "manager" LLM agent (Google Gemini via LangChain4j 0.36.2) receives a task from the user and delegates it to sub-agents exposed as LangChain4j tools. Tasks and their results are persisted with JPA to an in-memory H2 database and shown in a static web dashboard.
+AI-Manager is a small Spring Boot 3.4 (Java 17) multi-agent prototype. A "manager" LLM agent (Google Gemini via LangChain4j 1.22.0) receives a task from the user and delegates it to sub-agents exposed as LangChain4j tools. Tasks and their results are persisted with JPA to an in-memory H2 database and shown in a static web dashboard.
 
 Code comments, Javadoc, log messages, enum values and UI text are written in Norwegian Nynorsk — keep new code consistent with that.
 
@@ -24,7 +24,7 @@ Useful local URLs: dashboard at `/`, H2 console at `/h2-console` (JDBC URL `jdbc
 
 All classes live flat in `org.example` under `src/main/java`.
 
-- **`AiConfiguration`** wires the LLM: builds a `GoogleAiGeminiChatModel` (model from `gemini.model`, default `gemini-3.8-flash`; `gemini-2.5-flash` is no longer available to new API users) and creates the `ManagerAgent` bean via `AiServices.builder(...).tools(...)`.
+- **`AiConfiguration`** wires the LLM: builds a `GoogleAiGeminiChatModel` (60 s timeout via `gemini.timeout-seconds`, 1 retry) (model from `gemini.model`, default `gemini-3.8-flash`; `gemini-2.5-flash` is no longer available to new API users) and creates the `ManagerAgent` bean via `AiServices.builder(...).tools(...)`.
 - **`ManagerAgent`** is an interface only — LangChain4j generates the implementation. Its `@SystemMessage` defines the manager's delegation behavior.
 - **`CalendarAgent`** talks to the real Google Calendar API (tools: `getCurrentDateTime`, `scheduleMeeting`, `listMeetings`, `deleteMeeting`). Tools return error text instead of throwing, so the LLM can report failures. The Calendar client is created lazily on first tool call; if `tokens/` has no stored grant, it runs the OAuth installed-app flow (opens a browser, callback on port 8888) and blocks that HTTP request until the user logs in. Needs `credentials.json` (OAuth client of type "Desktop app") in the project root — both it and `tokens/` are gitignored. Settings: `google.calendar.*` in `application.properties`.
 - **Sub-agents** are Spring `@Component`s with `@Tool`-annotated methods. To add a new sub-agent: create the component, then inject it into `AiConfiguration.managerAgent(...)` and add it to `.tools(...)`. The LLM decides which tool to call based on the `@Tool` description.
