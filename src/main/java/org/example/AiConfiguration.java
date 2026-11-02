@@ -1,6 +1,7 @@
 package org.example;
 
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.googleai.GeminiThinkingConfig;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.service.AiServices;
 import org.springframework.context.annotation.Bean;
@@ -27,6 +28,9 @@ public class AiConfiguration {
     @Value("${gemini.max-retries:3}")
     private int maxRetries;
 
+    @Value("${gemini.thinking-level:LOW}")
+    private GeminiThinkingConfig.GeminiThinkingLevel thinkingLevel;
+
     /**
      * Set opp ChatModel med Google Gemini.
      * @return Ein konfigurert ChatModel-instans.
@@ -42,6 +46,11 @@ public class AiConfiguration {
                 .modelName(modelName)
                 .timeout(Duration.ofSeconds(timeoutSeconds))
                 .maxRetries(maxRetries)
+                // Gemini 3 tenkjer før svaret; lågt nivå gir raskare svar.
+                // Tankane må sendast tilbake til modellen når han brukar verktøy.
+                .thinkingConfig(GeminiThinkingConfig.builder().thinkingLevel(thinkingLevel).build())
+                .returnThinking(true)
+                .sendThinking(true)
                 .build();
     }
 
