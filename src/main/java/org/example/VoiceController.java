@@ -22,11 +22,13 @@ public class VoiceController {
 
     private final VoiceService voiceService;
     private final TaskRepository taskRepository;
+    private final AgentRouter agentRouter;
     private final Instant startedAt = Instant.now();
 
-    public VoiceController(VoiceService voiceService, TaskRepository taskRepository) {
+    public VoiceController(VoiceService voiceService, TaskRepository taskRepository, AgentRouter agentRouter) {
         this.voiceService = voiceService;
         this.taskRepository = taskRepository;
+        this.agentRouter = agentRouter;
     }
 
     /**
@@ -68,12 +70,13 @@ public class VoiceController {
 
     /**
      * Status til telemetri-panelet i HUD-en.
-     * @return Stemme, lytting, oppetid og tal på oppgåver.
+     * @return Stemme, modellen som svarte sist, lytting, oppetid og tal på oppgåver.
      */
     @GetMapping("/api/status")
     public Map<String, Object> status() {
         return Map.of(
                 "voice", voiceService.describe(),
+                "brain", "Gemini · " + agentRouter.lastModel(),
                 "elevenlabs", voiceService.available(),
                 "listening", voiceService.available() ? "ElevenLabs Scribe" : "nettlesaren",
                 "uptimeSeconds", Duration.between(startedAt, Instant.now()).toSeconds(),

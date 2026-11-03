@@ -384,6 +384,7 @@ function fetchStatus() {
         $("tVoice").textContent = s.voice;
         $("tListen").textContent = s.listening;
         $("tTasks").textContent = s.tasks;
+        $("tBrain").textContent = s.brain;
         var m = Math.floor(s.uptimeSeconds / 60), h = Math.floor(m / 60);
         $("tUptime").textContent = (h ? h + "t " : "") + (m % 60) + "m " + (s.uptimeSeconds % 60) + "s";
     }).catch(function () { $("tVoice").textContent = "fråkopla"; });

@@ -8,10 +8,11 @@ import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.service.AiServices;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Konfigurasjonsklasse for AI og LangChain4j-komponentar.
@@ -25,6 +26,9 @@ public class AiConfiguration {
     @Value("${gemini.model:gemini-3.8-flash}")
     private String modelName;
 
+    @Value("${gemini.fallback-models:gemini-3.5-flash,gemini-3.5-flash-lite}")
+    private List<String> fallbackModels;
+
     @Value("${gemini.timeout-seconds:60}")
     private long timeoutSeconds;
 
@@ -33,12 +37,6 @@ public class AiConfiguration {
 
     @Value("${gemini.thinking-level:LOW}")
     private GeminiThinkingConfig.GeminiThinkingLevel thinkingLevel;
-
-    @Value("${gemini.primary-max-retries:0}")
-    private int primaryMaxRetries;
-
-    @Value("${gemini.fallback-model:gemini-3.5-flash}")
-    private String fallbackModelName;
 
     /**
      * Lagar ein Gemini-modell.
@@ -66,7 +64,7 @@ public class AiConfiguration {
 
     /**
      * Samtaleminnet til ODIN, så han hugsar det som vart sagt tidlegare i samtalen.
-     * Hovud- og reservemodellen deler det same minnet.
+     * Alle modellane i kjeda deler det same minnet.
      * @return Eit minne med dei siste 30 meldingane.
      */
     @Bean
@@ -75,27 +73,24 @@ public class AiConfiguration {
     }
 
     /**
-     * Knyttar ManagerAgent-grensesnittet til hovudmodellen og registrerer verktøy.
+     * Lagar kjeda av modellar: hovudmodellen først, så reservemodellane i rekkjefølgje.
      * @param chatMemory Samtaleminnet.
      * @param calendarAgent CalendarAgent-verktøyet for å planleggje møter.
-     * @return Ein ferdig konfigurert ManagerAgent.
+     * @return Ein router som vel første tilgjengelege modell.
      */
     @Bean
-    @Primary
-    public ManagerAgent managerAgent(ChatMemory chatMemory, CalendarAgent calendarAgent) {
-        // Få forsøk her, så reservemodellen tek over raskt når hovudmodellen er overbelasta.
-        return agent(modelName, primaryMaxRetries, chatMemory, calendarAgent);
-    }
+    public AgentRouter agentRouter(ChatMemory chatMemory, CalendarAgent calendarAgent) {
+        List<String> models = new ArrayList<>();
+        models.add(modelName);
+        fallbackModels.stream().map(String::trim).filter(m -> !m.isEmpty() && !models.contains(m)).forEach(models::add);
 
-    /**
-     * Same agent på ein reservemodell, som blir brukt når hovudmodellen er overbelasta (503).
-     * @param chatMemory Samtaleminnet.
-     * @param calendarAgent CalendarAgent-verktøyet for å planleggje møter.
-     * @return Ein ManagerAgent på reservemodellen.
-     */
-    @Bean
-    public ManagerAgent fallbackManagerAgent(ChatMemory chatMemory, CalendarAgent calendarAgent) {
-        return agent(fallbackModelName, maxRetries, chatMemory, calendarAgent);
+        List<AgentRouter.Route> routes = new ArrayList<>();
+        for (int i = 0; i < models.size(); i++) {
+            // Ingen nye forsøk før den siste modellen: neste modell i kjeda er det nye forsøket.
+            int retries = i == models.size() - 1 ? maxRetries : 0;
+            routes.add(new AgentRouter.Route(models.get(i), agent(models.get(i), retries, chatMemory, calendarAgent)));
+        }
+        return new AgentRouter(routes, chatMemory, calendarAgent::getCurrentDateTime);
     }
 
     private ManagerAgent agent(String name, int retries, ChatMemory chatMemory, CalendarAgent calendarAgent) {
