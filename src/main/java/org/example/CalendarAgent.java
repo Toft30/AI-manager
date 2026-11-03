@@ -117,10 +117,49 @@ public class CalendarAgent {
             Event created = calendar().events().insert(calendarId, event)
                     .setSendUpdates(guests.isEmpty() ? "none" : "all")
                     .execute();
-            return "Møtet «" + created.getSummary() + "» er oppretta " + start.format(VIS_FORMAT)
-                    + " (id: " + created.getId() + ", lenkje: " + created.getHtmlLink() + ")";
+            return ToolResponse.ok("Møtet «" + created.getSummary() + "» er oppretta " + start.format(VIS_FORMAT)
+                    + " (id: " + created.getId() + ", lenkje: " + created.getHtmlLink() + ")").toString();
         } catch (Exception e) {
-            return "Klarte ikkje å opprette møtet: " + e.getMessage();
+            return ToolResponse.failed("Klarte ikkje å opprette møtet: " + e.getMessage()).toString();
+        }
+    }
+
+    /**
+     * Sjekkar om brukaren er ledig i eit tidsrom, ved å sjå etter hendingar som overlappar.
+     * @param startTime Starttidspunkt, til dømes 2026-11-03T10:00.
+     * @param durationMinutes Kor lenge tidsrommet varer.
+     * @return Strukturert svar: ledig, eller opptatt med hendingane som kolliderer.
+     */
+    @Tool("Checks if the user is available in a time slot, or if the calendar already has events then. "
+            + "Use it before scheduling a meeting when the user asks if a time is free.")
+    public String checkAvailability(@P("Start time as ISO-8601 local date-time, e.g. 2026-11-03T10:00") String startTime,
+                                    @P("Length of the time slot in minutes, use 60 if not specified") int durationMinutes) {
+        System.out.println("CalendarAgent sjekkar tilgjenge for: " + startTime);
+        try {
+            ZonedDateTime start = LocalDateTime.parse(startTime).atZone(zone);
+            ZonedDateTime end = start.plusMinutes(durationMinutes > 0 ? durationMinutes : 60);
+
+            Events events = calendar().events().list(calendarId)
+                    .setTimeMin(toDateTime(start))
+                    .setTimeMax(toDateTime(end))
+                    .setSingleEvents(true)
+                    .setOrderBy("startTime")
+                    .execute();
+
+            // Hendingar merkte som «ledig» (transparent) blokkerer ikkje tida.
+            List<Event> busy = events.getItems().stream()
+                    .filter(event -> !"transparent".equals(event.getTransparency()))
+                    .toList();
+            if (busy.isEmpty()) {
+                return ToolResponse.ok("Ledig " + start.format(VIS_FORMAT) + " i " + durationMinutes + " minutt.").toString();
+            }
+            StringBuilder sb = new StringBuilder("Opptatt " + start.format(VIS_FORMAT) + ". Kolliderer med: ");
+            for (Event event : busy) {
+                sb.append(event.getSummary()).append(" (").append(describeStart(event)).append("); ");
+            }
+            return ToolResponse.ok(sb.toString().trim()).toString();
+        } catch (Exception e) {
+            return ToolResponse.failed("Klarte ikkje å sjekke kalenderen: " + e.getMessage()).toString();
         }
     }
 
@@ -145,16 +184,16 @@ public class CalendarAgent {
                     .execute();
 
             if (events.getItems().isEmpty()) {
-                return "Ingen hendingar mellom " + fromDate + " og " + toDate + ".";
+                return ToolResponse.ok("Ingen hendingar mellom " + fromDate + " og " + toDate + ".").toString();
             }
             StringBuilder sb = new StringBuilder();
             for (Event event : events.getItems()) {
                 sb.append("- ").append(describeStart(event)).append(": ").append(event.getSummary())
                         .append(" (id: ").append(event.getId()).append(")\n");
             }
-            return sb.toString();
+            return ToolResponse.ok(sb.toString()).toString();
         } catch (Exception e) {
-            return "Klarte ikkje å hente hendingar: " + e.getMessage();
+            return ToolResponse.failed("Klarte ikkje å hente hendingar: " + e.getMessage()).toString();
         }
     }
 
@@ -167,9 +206,9 @@ public class CalendarAgent {
     public String deleteMeeting(@P("The id of the event to delete") String eventId) {
         try {
             calendar().events().delete(calendarId, eventId).execute();
-            return "Hendinga med id " + eventId + " er sletta.";
+            return ToolResponse.ok("Hendinga med id " + eventId + " er sletta.").toString();
         } catch (Exception e) {
-            return "Klarte ikkje å slette hendinga: " + e.getMessage();
+            return ToolResponse.failed("Klarte ikkje å slette hendinga: " + e.getMessage()).toString();
         }
     }
 

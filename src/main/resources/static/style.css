@@ -154,6 +154,7 @@ dd { margin: 0; color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
 
 .askbar { width: 100%; max-width: 760px; display: flex; gap: 8px; margin-top: 10px; }
 .askbar input {
+    min-width: 0;
     flex: 1; padding: 12px 14px; font: 500 17px 'Rajdhani', sans-serif;
     background: rgba(0, 0, 0, .45); color: var(--text);
     border: 1px solid var(--line); outline: none;
@@ -184,9 +185,14 @@ dd { margin: 0; color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
 
 @media (max-width: 1000px) {
     body { overflow: auto; }
-    .hud { grid-template-columns: 1fr; height: auto; padding: 16px; }
+    .hud { grid-template-columns: minmax(0, 1fr); height: auto; padding: 16px; }
     .telemetry, .actionlog { max-height: 320px; }
     .brand-sub { display: none; }
     .brand { font-size: 20px; letter-spacing: 3px; }
     .state-chip { min-width: 0; padding: 4px 8px; }
 }
+
+/* Deloppgåver frå /plan */
+.subtasks { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--muted); }
+.subtasks li { margin-bottom: 4px; }
+.subtasks li span:first-child { margin-right: 6px; }

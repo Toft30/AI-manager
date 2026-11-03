@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,8 +35,9 @@ public class AgentRouter {
      * Ein modell i kjeda.
      * @param model Namnet på Gemini-modellen.
      * @param agent Agenten som brukar modellen.
+     * @param planner Planleggjaren som brukar same modell.
      */
-    public record Route(String model, ManagerAgent agent) {
+    public record Route(String model, ManagerAgent agent, PlannerAgent planner) {
     }
 
     private final List<Route> routes;
@@ -59,9 +61,24 @@ public class AgentRouter {
      * @return Svaret frå modellen.
      */
     public synchronized String ask(String task) {
-        List<ChatMessage> memoryBefore = new ArrayList<>(chatMemory.messages());
         String now = clock.get();
         String learned = memory.get();
+        return firstAvailable(route -> route.agent().delegateTask(task, now, learned));
+    }
+
+    /**
+     * Bryt ned ei oppgåve i deloppgåver med første tilgjengelege modell.
+     * @param task Oppgåva frå brukaren.
+     * @param maxSubTasks Det høgaste talet på deloppgåver.
+     * @return Deloppgåvene.
+     */
+    public synchronized TaskDecompositionResult plan(String task, int maxSubTasks) {
+        String now = clock.get();
+        return firstAvailable(route -> route.planner().decomposeTask(task, now, maxSubTasks));
+    }
+
+    private <T> T firstAvailable(Function<Route, T> call) {
+        List<ChatMessage> memoryBefore = new ArrayList<>(chatMemory.messages());
         RuntimeException lastError = null;
 
         for (int i = 0; i < routes.size(); i++) {
@@ -71,7 +88,7 @@ public class AgentRouter {
                 continue;
             }
             try {
-                String answer = route.agent().delegateTask(task, now, learned);
+                T answer = call.apply(route);
                 lastModel = route.model();
                 return answer;
             } catch (RuntimeException e) {

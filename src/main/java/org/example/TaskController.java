@@ -18,13 +18,15 @@ public class TaskController {
     private final TaskRepository taskRepository;
     private final ChatMemory chatMemory;
     private final DialectMemory dialectMemory;
+    private final TaskOrchestratorService taskOrchestratorService;
 
     public TaskController(AgentRouter agentRouter, TaskRepository taskRepository, ChatMemory chatMemory,
-                          DialectMemory dialectMemory) {
+                          DialectMemory dialectMemory, TaskOrchestratorService taskOrchestratorService) {
         this.agentRouter = agentRouter;
         this.taskRepository = taskRepository;
         this.chatMemory = chatMemory;
         this.dialectMemory = dialectMemory;
+        this.taskOrchestratorService = taskOrchestratorService;
     }
 
     /**
@@ -32,11 +34,13 @@ public class TaskController {
      * Døme på bruk: GET /api/task?task=Schedule a meeting for tomorrow at 10 AM
      *
      * @param task Oppgåveskildring som skal sendast til manageren.
+     * @param plan Om oppgåva skal brytast ned i deloppgåver først. Kostar fleire kall mot Gemini.
      * @return Den lagra oppgåva med status og svar frå AI-modellen.
      */
     @GetMapping("/api/task")
-    public Task delegateTask(@RequestParam(defaultValue = "Schedule a meeting for tomorrow at 10 AM") String task) {
-        System.out.println("Tek imot oppgåve via HTTP: " + task);
+    public Task delegateTask(@RequestParam(defaultValue = "Schedule a meeting for tomorrow at 10 AM") String task,
+                             @RequestParam(defaultValue = "false") boolean plan) {
+        System.out.println("Tek imot oppgåve via HTTP" + (plan ? " (med plan): " : ": ") + task);
         Task saved = taskRepository.save(new Task(task));
 
         saved.setStatus(TaskStatus.PÅGÅANDE);
@@ -45,6 +49,9 @@ public class TaskController {
         try {
             // Tydelege rettingar blir lagra før modellen svarar, så han ser dei i ordboka med ein gong.
             dialectMemory.learnFromText(task);
+            if (plan) {
+                return taskOrchestratorService.orchestrate(saved);
+            }
             saved.setResult(agentRouter.ask(task));
             saved.setStatus(TaskStatus.FULLFØRT);
         } catch (Exception e) {

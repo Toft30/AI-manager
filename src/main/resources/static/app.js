@@ -102,20 +102,25 @@ function handleInput(text) {
         addLine("odin", state.muted ? "Opplesing er slått av." : "Opplesing er slått på att.");
         return;
     }
+    // /plan bryt oppgåva ned i deloppgåver først. Det kostar fleire Gemini-kall, så det er valfritt.
+    var planned = text.match(/^\/plan\s+(.+)/i);
+    if (planned) return ask(planned[1], true);
     ask(text);
 }
 
-function ask(text) {
+function ask(text, plan) {
     if (state.busy) return;
     stopAudio();
     state.busy = true;
-    addLine("user", text);
+    addLine("user", plan ? "Plan: " + text : text);
     setMode("thinking");
     $("sendTaskBtn").disabled = true;
     state.askAbort = new AbortController();
 
-    fetch("/api/task?task=" + encodeURIComponent(text), { signal: state.askAbort.signal })
-        .then(function (r) { return r.json(); })
+    // Ein plan tek lang tid; hent loggen oftare så deloppgåvene dukkar opp undervegs.
+    var progress = plan ? setInterval(fetchTasks, 1000) : null;
+    fetch("/api/task?task=" + encodeURIComponent(text) + (plan ? "&plan=true" : ""), { signal: state.askAbort.signal })
+        .then(function (r) { clearInterval(progress); return r.json(); })
         .then(function (task) {
             fetchTasks();
             fetchMemory();
@@ -128,6 +133,7 @@ function ask(text) {
             return say(reply);
         })
         .catch(function (e) {
+            clearInterval(progress);
             if (e.name !== "AbortError") addLine("error", "Klarte ikkje å nå serveren: " + e.message);
         })
         .finally(function () {
@@ -447,6 +453,21 @@ function renderTasks(tasks) {
             result.className = "task-result";
             result.textContent = task.result;
             card.appendChild(result);
+        }
+
+        if (task.subTasks && task.subTasks.length > 0) {
+            var subs = document.createElement("ol");
+            subs.className = "subtasks";
+            task.subTasks.forEach(function (sub) {
+                var item = document.createElement("li");
+                var text = document.createElement("span");
+                text.textContent = sub.description;
+                item.appendChild(text);
+                item.appendChild(statusBadge(sub.status));
+                if (sub.result) item.title = sub.result;
+                subs.appendChild(item);
+            });
+            card.appendChild(subs);
         }
         list.appendChild(card);
     });

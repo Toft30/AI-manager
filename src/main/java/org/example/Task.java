@@ -6,9 +6,15 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Ei oppgåve som er send til manager-agenten, lagra i databasen.
@@ -30,6 +36,11 @@ public class Task {
     private String result;
 
     private LocalDateTime createdAt;
+
+    // EAGER så dashboardet får deloppgåvene med i JSON-svaret frå /api/tasks.
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("id")
+    private List<SubTask> subTasks = new ArrayList<>();
 
     protected Task() {
     }
@@ -66,5 +77,20 @@ public class Task {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public List<SubTask> getSubTasks() {
+        return subTasks;
+    }
+
+    /**
+     * Legg til ei deloppgåve. Ho blir lagra saman med oppgåva.
+     * @param description Kva deloppgåva går ut på.
+     * @return Den nye deloppgåva.
+     */
+    public SubTask addSubTask(String description) {
+        SubTask subTask = new SubTask(description, this);
+        subTasks.add(subTask);
+        return subTask;
     }
 }
