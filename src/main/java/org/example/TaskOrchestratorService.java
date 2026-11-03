@@ -1,73 +1,115 @@
 package org.example;
 
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Ei teneste for å orkestrere AI-oppgåver og databaselagring.
+ * Ei teneste for å orkestrere store oppgåver: bryt dei ned i deloppgåver og utfør dei éi etter éi.
+ *
+ * <p>
+ * Kvar deloppgåve kostar eitt kall mot Gemini, pluss eitt for planen og eitt for oppsummeringa,
+ * så dette blir berre brukt når brukaren ber om det (/plan i HUD-en), ikkje for vanlege spørsmål.
+ * </p>
  */
 @Service
 public class TaskOrchestratorService {
 
-    private final ManagerAgent managerAgent;
-    private final TaskRepository taskRepository;
+    static final int MAX_SUBTASKS = 4;
 
-    public TaskOrchestratorService(ManagerAgent managerAgent, TaskRepository taskRepository) {
-        this.managerAgent = managerAgent;
+    private final AgentRouter agentRouter;
+    private final TaskRepository taskRepository;
+    private final SubTaskRepository subTaskRepository;
+
+    public TaskOrchestratorService(AgentRouter agentRouter, TaskRepository taskRepository,
+                                   SubTaskRepository subTaskRepository) {
+        this.agentRouter = agentRouter;
         this.taskRepository = taskRepository;
+        this.subTaskRepository = subTaskRepository;
     }
 
     /**
-     * Køyrer arbeidsflyten: Opprettar Task, bryt ned oppgåva, lagrar SubTasks,
-     * delegerer deretter kvar SubTask og oppdaterer status i DB.
+     * Køyrer arbeidsflyten: bryt ned oppgåva, lagrar deloppgåvene, delegerer kvar av dei
+     * og oppdaterer status i databasen undervegs, så dashboardet kan vise framdrifta.
      *
-     * @param taskDescription Skildring av oppgåva.
-     * @return Eit oversyn over prosessen.
+     * @param task Oppgåva, alt lagra i databasen.
+     * @return Oppgåva med deloppgåver, status og eit kort, talevennleg svar.
      */
-    public String orchestrateTask(String taskDescription) {
-        // 1. Lagre hovedoppgåva i db som MOTTATT
-        Task taskEntity = new Task(taskDescription, "MOTTATT");
-        taskRepository.save(taskEntity);
+    public Task orchestrate(Task task) {
+        String description = task.getDescription();
 
-        // 2. Be AI-manageren om å bryte ned oppgåva
-        TaskDecompositionResult result = managerAgent.decomposeTask(taskDescription);
-
-        if (result == null || result.getSubTasks() == null || result.getSubTasks().isEmpty()) {
-            taskEntity.setStatus("FEILA");
-            taskRepository.save(taskEntity);
-            return "Kunne ikkje bryte ned oppgåva.";
+        // 1. Be planleggjaren om å bryte ned oppgåva.
+        TaskDecompositionResult plan = agentRouter.plan(description, MAX_SUBTASKS);
+        List<String> steps = plan == null || plan.getSubTasks() == null ? List.of()
+                : plan.getSubTasks().stream().filter(s -> s != null && !s.isBlank()).limit(MAX_SUBTASKS).toList();
+        if (steps.isEmpty()) {
+            task.setStatus(TaskStatus.FEILA);
+            task.setResult("Eg klarte ikkje å bryte ned oppgåva.");
+            return taskRepository.save(task);
         }
 
-        // 3. Lagre deloppgåvene (SubTasks) i databasen som PÅGÅANDE
-        List<String> subTasks = result.getSubTasks();
-        for (String subTaskDesc : subTasks) {
-            SubTask subTask = new SubTask(subTaskDesc, "PÅGÅANDE", taskEntity);
-            taskEntity.addSubTask(subTask);
+        // 2. Lagre deloppgåvene, så dei får id og blir synlege i dashboardet.
+        steps.forEach(task::addSubTask);
+        task.setStatus(TaskStatus.PÅGÅANDE);
+        task = taskRepository.save(task);
+        List<Long> ids = task.getSubTasks().stream().map(SubTask::getId).toList();
+
+        // 3. Delegere kvar deloppgåve. Statusen blir lesen på nytt frå databasen etterpå,
+        //    sidan modellen kan ha sett ho til FEILA med TaskUpdaterTool.
+        List<String> outcomes = new ArrayList<>();
+        boolean allDone = true;
+        for (int i = 0; i < ids.size(); i++) {
+            SubTask subTask = subTaskRepository.findById(ids.get(i)).orElseThrow();
+            subTask.setStatus(TaskStatus.PÅGÅANDE);
+            subTaskRepository.save(subTask);
+
+            String prompt = "Deloppgåve " + (i + 1) + " av " + ids.size() + " (deloppgåve-id " + subTask.getId()
+                    + ") i oppgåva «" + description + "»: " + subTask.getDescription();
+            String answer;
+            try {
+                answer = agentRouter.ask(prompt);
+            } catch (Exception e) {
+                subTask.setStatus(TaskStatus.FEILA);
+                subTask.setResult("Feil: " + e.getMessage());
+                subTaskRepository.save(subTask);
+                return finish(task.getId(), TaskStatus.FEILA,
+                        "Eg stoppa ved deloppgåve " + (i + 1) + " fordi Gemini ikkje svarte. Prøv igjen litt seinare.");
+            }
+
+            SubTask fresh = subTaskRepository.findById(subTask.getId()).orElseThrow();
+            boolean failed = fresh.getStatus() == TaskStatus.FEILA;
+            fresh.setStatus(failed ? TaskStatus.FEILA : TaskStatus.FULLFØRT);
+            fresh.setResult(failed && fresh.getResult() != null ? fresh.getResult() + " – " + answer : answer);
+            subTaskRepository.save(fresh);
+
+            allDone &= !failed;
+            outcomes.add((i + 1) + ". " + fresh.getDescription() + (failed ? " (feila): " : ": ") + answer);
         }
 
-        taskEntity.setStatus("PÅGÅANDE");
-        taskRepository.save(taskEntity);
+        // 4. Éi deloppgåve treng inga oppsummering; fleire får eitt kort, samla svar.
+        String summary = outcomes.size() == 1 ? stripNumber(outcomes.get(0)) : summarize(description, outcomes);
+        return finish(task.getId(), allDone ? TaskStatus.FULLFØRT : TaskStatus.FEILA, summary);
+    }
 
-        StringBuilder workflowLog = new StringBuilder("Startar delegering for oppgåve " + taskEntity.getId() + ":\n");
-
-        // 4. Løkke for å delegere kvar enkelt deloppgåve
-        for (SubTask subTask : taskEntity.getSubTasks()) {
-            workflowLog.append("- Delegerer: ").append(subTask.getDescription()).append("\n");
-
-            // Brukar manageren til å ta seg av spesifikke deloppgåver (som kan involvere verktøy som CalendarAgent)
-            String subTaskResponse = managerAgent.delegateTask(subTask.getDescription());
-
-            workflowLog.append("  Svar: ").append(subTaskResponse).append("\n");
-
-            // Marker deloppgåva som FULLFØRT
-            subTask.setStatus("FULLFØRT");
+    private String summarize(String description, List<String> outcomes) {
+        try {
+            return agentRouter.ask("Alle deloppgåvene i oppgåva «" + description + "» er gjennomgått. Resultat: "
+                    + String.join(" ", outcomes) + " Oppsummer kort for brukaren kva som vart gjort, og nemn det som feila.");
+        } catch (Exception e) {
+            return String.join(" ", outcomes);
         }
+    }
 
-        // 5. Oppdater hovudstatus når alt er ferdig
-        taskEntity.setStatus("FULLFØRT");
-        taskRepository.save(taskEntity);
+    private static String stripNumber(String outcome) {
+        int colon = outcome.indexOf(": ");
+        return colon >= 0 ? outcome.substring(colon + 2) : outcome;
+    }
 
-        workflowLog.append("Heile prosessen er fullført!");
-        return workflowLog.toString();
+    private Task finish(Long taskId, TaskStatus status, String result) {
+        Task task = taskRepository.findById(taskId).orElseThrow();
+        task.setStatus(status);
+        task.setResult(result);
+        return taskRepository.save(task);
     }
 }

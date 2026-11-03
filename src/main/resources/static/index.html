@@ -1,32 +1,80 @@
 <!DOCTYPE html>
-<html lang="no">
+<html lang="nn">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Manager Dashboard</title>
+    <title>O.D.I.N.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="container">
-    <header>
-        <h1>AI Manager: Kjell</h1>
+<div id="boot" class="boot">
+    <button id="bootBtn" class="boot-btn">
+        <span class="boot-ring"></span>
+        <span class="boot-label">Aktiver ODIN</span>
+    </button>
+    <p class="boot-hint">Klikk for å slå på lyd og mikrofon</p>
+</div>
+
+<div class="hud">
+    <header class="topbar">
+        <div class="brand">O.D.I.N.<span class="brand-sub">Operational Data &amp; Intelligence Node</span></div>
+        <div class="state-chip" id="stateChip">KVILER</div>
+        <div class="clock" id="clock">--:--:--</div>
     </header>
 
-    <section class="task-input">
-        <h2>Send ny oppgåve</h2>
-        <div class="input-group">
-            <input type="text" id="taskInput" placeholder="Skriv kva du vil Manager ska gjer" />
-            <button id="sendTaskBtn">Send til Manager</button>
-        </div>
-        <div id="loadingIndicator" class="hidden">Orkestrerer oppgåva...</div>
-    </section>
+    <aside class="panel telemetry">
+        <h2>Telemetri</h2>
+        <dl>
+            <dt>Stemme</dt><dd id="tVoice">-</dd>
+            <dt>Lytting</dt><dd id="tListen">-</dd>
+            <dt>Hjerne</dt><dd id="tBrain">Google Gemini</dd>
+            <dt>Oppetid</dt><dd id="tUptime">-</dd>
+            <dt>Oppgåver</dt><dd id="tTasks">-</dd>
+        </dl>
+        <h2>Kommandoar</h2>
+        <ul class="commands">
+            <li><code>/ny</code> ny samtale</li>
+            <li><code>/plan</code> del opp ei stor oppgåve</li>
+            <li><code>/stille</code> slå av opplesing</li>
+            <li><code>Esc</code> avbryt</li>
+            <li><code>/</code> fokus på feltet</li>
+        </ul>
+        <h2>Nivå</h2>
+        <div class="meter"><div class="meter-fill" id="meterFill"></div><div class="meter-threshold" id="meterThreshold"></div></div>
+        <h2 class="memory-heading">Ordbok <span id="memoryCount" class="count">0</span></h2>
+        <p class="memory-hint">Sei «når eg seier X, meiner eg Y», så lærer ODIN det.</p>
+        <form id="memoryForm" class="memory-form" autocomplete="off">
+            <select id="memoryKind" aria-label="Type">
+                <option value="ORD">Ord</option>
+                <option value="FEILHØYRING">Feilhøyrt</option>
+                <option value="FAKTA">Fakta</option>
+            </select>
+            <input type="text" id="memoryTerm" placeholder="Dialektord" aria-label="Ord" />
+            <input type="text" id="memoryMeaning" placeholder="Tyding" aria-label="Tyding" />
+            <button type="submit" title="Legg til">+</button>
+        </form>
+        <ul id="memoryList" class="memory-list"></ul>
+    </aside>
 
-    <section class="dashboard">
-        <h2>Aktive og fullførte oppgåver</h2>
-        <div id="taskList" class="task-list">
-            <!-- Data blir henta og lasta inn her av app.js -->
+    <main class="core-area">
+        <div class="reactor" id="reactor">
+            <canvas id="reactorCanvas" width="420" height="420"></canvas>
         </div>
-    </section>
+        <div class="transcript" id="transcript"></div>
+        <form class="askbar" id="askForm" autocomplete="off">
+            <input type="text" id="taskInput" placeholder="Spør ODIN om noko, eller snakk til han ..." />
+            <button type="button" id="micBtn" class="icon-btn" title="Hald inne / klikk for å snakke">MIC</button>
+            <button type="button" id="liveBtn" class="icon-btn" title="Handfri samtale">LIVE</button>
+            <button type="submit" id="sendTaskBtn">SEND</button>
+        </form>
+    </main>
+
+    <aside class="panel actionlog">
+        <h2>Handlingslogg</h2>
+        <div id="taskList" class="task-list"></div>
+    </aside>
 </div>
 
 <script src="app.js"></script>
