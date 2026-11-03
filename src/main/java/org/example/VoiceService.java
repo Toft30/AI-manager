@@ -31,6 +31,7 @@ public class VoiceService {
     private static final String BASE_URL = "https://api.elevenlabs.io/v1";
     private static final int MAX_TEXT_LENGTH = 2500;
     private static final int MAX_KEYTERMS = 100;
+    private static final int MAX_KEYTERM_WORDS = 5;
 
     private final String apiKey;
     private final String voiceId;
@@ -111,6 +112,27 @@ public class VoiceService {
             throw new IllegalArgumentException("Tomt lydklipp");
         }
         String type = mime == null || mime.isBlank() ? "audio/webm" : mime;
+        List<String> terms = keyterms();
+
+        HttpResponse<byte[]> response = sendSpeechToText(audio, type, terms);
+        // Avviser ElevenLabs hinta (reglane for keyterms kan endre seg), prøv på nytt utan dei
+        // i staden for å miste det brukaren sa.
+        if (response.statusCode() == 400 && !terms.isEmpty() && snippet(response.body()).contains("keyword")) {
+            System.out.println("ElevenLabs avviste ord-hinta, prøver utan: " + snippet(response.body()));
+            response = sendSpeechToText(audio, type, List.of());
+        }
+        if (response.statusCode() != 200) {
+            throw new IOException("ElevenLabs STT HTTP " + response.statusCode() + ": " + snippet(response.body()));
+        }
+        JsonNode json = mapper.readTree(response.body());
+        String text = json.path("text").asText("").trim();
+        // Fjern lydhendingar som (latter) eller [støy]; er det ingenting att, var det ikkje tale.
+        text = text.replaceAll("[\\[(][^\\])]{0,40}[\\])]", " ").replaceAll("\\s+", " ").trim();
+        return text.replaceAll("[^\\p{L}\\p{N}]", "").length() < 2 ? "" : text;
+    }
+
+    private HttpResponse<byte[]> sendSpeechToText(byte[] audio, String type, List<String> terms)
+            throws IOException, InterruptedException {
         String ext = type.contains("ogg") ? "ogg" : type.contains("mp4") ? "mp4" : type.contains("wav") ? "wav"
                 : type.contains("mpeg") ? "mp3" : "webm";
         String boundary = "----odin" + UUID.randomUUID().toString().replace("-", "");
@@ -122,7 +144,7 @@ public class VoiceService {
             writeField(body, boundary, "language_code", sttLanguage);
         }
         // Ord frå ordboka blir sende med som hint, så talegjenkjenninga oftare høyrer dei rett.
-        for (String term : keyterms()) {
+        for (String term : terms) {
             writeField(body, boundary, "keyterms", term);
         }
         body.write(("--" + boundary + "\r\n"
@@ -138,15 +160,7 @@ public class VoiceService {
                 .header("content-type", "multipart/form-data; boundary=" + boundary)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()))
                 .build();
-        HttpResponse<byte[]> response = http.send(request, HttpResponse.BodyHandlers.ofByteArray());
-        if (response.statusCode() != 200) {
-            throw new IOException("ElevenLabs STT HTTP " + response.statusCode() + ": " + snippet(response.body()));
-        }
-        JsonNode json = mapper.readTree(response.body());
-        String text = json.path("text").asText("").trim();
-        // Fjern lydhendingar som (latter) eller [støy]; er det ingenting att, var det ikkje tale.
-        text = text.replaceAll("[\\[(][^\\])]{0,40}[\\])]", " ").replaceAll("\\s+", " ").trim();
-        return text.replaceAll("[^\\p{L}\\p{N}]", "").length() < 2 ? "" : text;
+        return http.send(request, HttpResponse.BodyHandlers.ofByteArray());
     }
 
     /**
@@ -168,12 +182,13 @@ public class VoiceService {
     }
 
     /**
-     * Ord frå ordboka i ei form ElevenLabs godtek: berre bokstavar, tal, mellomrom, bindestrek og apostrof.
+     * Ord frå ordboka i ei form ElevenLabs godtek: berre bokstavar, tal, mellomrom, bindestrek og apostrof,
+     * og maks fire mellomrom (fem ord). Lengre oppføringar blir berre brukte av Gemini, ikkje som hint.
      */
     private List<String> keyterms() {
         return dialectMemory.keyterms().stream()
-                .map(t -> t.replaceAll("[^\\p{L}\\p{N} '\\-]", "").trim())
-                .filter(t -> !t.isEmpty())
+                .map(t -> t.replaceAll("[^\\p{L}\\p{N} '\\-]", "").replaceAll("\\s+", " ").trim())
+                .filter(t -> !t.isEmpty() && t.split(" ").length <= MAX_KEYTERM_WORDS)
                 .distinct()
                 .limit(MAX_KEYTERMS)
                 .toList();
