@@ -1,11 +1,14 @@
 package org.example;
 
+import dev.langchain4j.memory.ChatMemory;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.googleai.GeminiThinkingConfig;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.service.AiServices;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Duration;
@@ -31,21 +34,28 @@ public class AiConfiguration {
     @Value("${gemini.thinking-level:LOW}")
     private GeminiThinkingConfig.GeminiThinkingLevel thinkingLevel;
 
+    @Value("${gemini.primary-max-retries:0}")
+    private int primaryMaxRetries;
+
+    @Value("${gemini.fallback-model:gemini-3.5-flash}")
+    private String fallbackModelName;
+
     /**
-     * Set opp ChatModel med Google Gemini.
+     * Lagar ein Gemini-modell.
+     * @param name Namnet på modellen.
+     * @param retries Kor mange gonger han skal prøve på nytt ved feil som 503.
      * @return Ein konfigurert ChatModel-instans.
      */
-    @Bean
-    public ChatModel chatModel() {
+    private ChatModel gemini(String name, int retries) {
         if (apiKey == null || apiKey.isEmpty()) {
             throw new IllegalStateException("Miljøvariabelen GEMINI_API_KEY eller GOOGLE_API_KEY må setjast.");
         }
 
         return GoogleAiGeminiChatModel.builder()
                 .apiKey(apiKey)
-                .modelName(modelName)
+                .modelName(name)
                 .timeout(Duration.ofSeconds(timeoutSeconds))
-                .maxRetries(maxRetries)
+                .maxRetries(retries)
                 // Gemini 3 tenkjer før svaret; lågt nivå gir raskare svar.
                 // Tankane må sendast tilbake til modellen når han brukar verktøy.
                 .thinkingConfig(GeminiThinkingConfig.builder().thinkingLevel(thinkingLevel).build())
@@ -55,15 +65,43 @@ public class AiConfiguration {
     }
 
     /**
-     * Knyttar ManagerAgent-grensesnittet til ChatModel og registrerer verktøy.
-     * @param chatModel Modellen som skal brukast.
+     * Samtaleminnet til JARVIS, så han hugsar det som vart sagt tidlegare i samtalen.
+     * Hovud- og reservemodellen deler det same minnet.
+     * @return Eit minne med dei siste 30 meldingane.
+     */
+    @Bean
+    public ChatMemory chatMemory() {
+        return MessageWindowChatMemory.withMaxMessages(30);
+    }
+
+    /**
+     * Knyttar ManagerAgent-grensesnittet til hovudmodellen og registrerer verktøy.
+     * @param chatMemory Samtaleminnet.
      * @param calendarAgent CalendarAgent-verktøyet for å planleggje møter.
      * @return Ein ferdig konfigurert ManagerAgent.
      */
     @Bean
-    public ManagerAgent managerAgent(ChatModel chatModel, CalendarAgent calendarAgent) {
+    @Primary
+    public ManagerAgent managerAgent(ChatMemory chatMemory, CalendarAgent calendarAgent) {
+        // Få forsøk her, så reservemodellen tek over raskt når hovudmodellen er overbelasta.
+        return agent(modelName, primaryMaxRetries, chatMemory, calendarAgent);
+    }
+
+    /**
+     * Same agent på ein reservemodell, som blir brukt når hovudmodellen er overbelasta (503).
+     * @param chatMemory Samtaleminnet.
+     * @param calendarAgent CalendarAgent-verktøyet for å planleggje møter.
+     * @return Ein ManagerAgent på reservemodellen.
+     */
+    @Bean
+    public ManagerAgent fallbackManagerAgent(ChatMemory chatMemory, CalendarAgent calendarAgent) {
+        return agent(fallbackModelName, maxRetries, chatMemory, calendarAgent);
+    }
+
+    private ManagerAgent agent(String name, int retries, ChatMemory chatMemory, CalendarAgent calendarAgent) {
         return AiServices.builder(ManagerAgent.class)
-                .chatModel(chatModel)
+                .chatModel(gemini(name, retries))
+                .chatMemory(chatMemory)
                 .tools(calendarAgent)
                 .build();
     }

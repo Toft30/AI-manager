@@ -43,3 +43,6 @@ Test/
 ### Google Calendar OAuth ###
 credentials.json
 tokens/
+
+### Hemmelege nøklar ###
+.env
