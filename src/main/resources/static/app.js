@@ -38,6 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (text) { $("taskInput").value = ""; handleInput(text); }
     });
     $("micBtn").addEventListener("click", togglePushToTalk);
+    $("calendarLoginBtn").addEventListener("click", calendarLogin);
     $("liveBtn").addEventListener("click", function () { Live.on ? Live.stop() : Live.start(); });
     document.addEventListener("keydown", function (e) {
         if (e.key === "Escape") cancelAll();
@@ -414,9 +415,25 @@ function fetchStatus() {
         $("tListen").textContent = s.listening;
         $("tTasks").textContent = s.tasks;
         $("tBrain").textContent = s.brain;
+        $("tCalendar").textContent = s.calendar;
+        state.calendarLoginUrl = s.calendarLoginUrl || null;
+        var loginBtn = $("calendarLoginBtn");
+        loginBtn.classList.toggle("hidden", s.calendar === "innlogga" || s.calendar === "ikkje sett opp");
+        loginBtn.textContent = s.calendarLoginUrl ? "Opne innloggingssida" : "Logg inn";
         var m = Math.floor(s.uptimeSeconds / 60), h = Math.floor(m / 60);
         $("tUptime").textContent = (h ? h + "t " : "") + (m % 60) + "m " + (s.uptimeSeconds % 60) + "s";
     }).catch(function () { $("tVoice").textContent = "fråkopla"; });
+}
+
+// Startar Google-innlogginga, eller opnar sida på nytt om fana vart lukka.
+function calendarLogin() {
+    if (state.calendarLoginUrl) {
+        window.open(state.calendarLoginUrl, "_blank", "noopener");
+        return;
+    }
+    fetch("/api/calendar/login", { method: "POST" }).then(function () {
+        setTimeout(fetchStatus, 800);
+    });
 }
 
 function fetchTasks() {

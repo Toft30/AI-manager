@@ -12,6 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -23,12 +24,15 @@ public class VoiceController {
     private final VoiceService voiceService;
     private final TaskRepository taskRepository;
     private final AgentRouter agentRouter;
+    private final CalendarAgent calendarAgent;
     private final Instant startedAt = Instant.now();
 
-    public VoiceController(VoiceService voiceService, TaskRepository taskRepository, AgentRouter agentRouter) {
+    public VoiceController(VoiceService voiceService, TaskRepository taskRepository, AgentRouter agentRouter,
+                           CalendarAgent calendarAgent) {
         this.voiceService = voiceService;
         this.taskRepository = taskRepository;
         this.agentRouter = agentRouter;
+        this.calendarAgent = calendarAgent;
     }
 
     /**
@@ -70,16 +74,21 @@ public class VoiceController {
 
     /**
      * Status til telemetri-panelet i HUD-en.
-     * @return Stemme, modellen som svarte sist, lytting, oppetid og tal på oppgåver.
+     * @return Stemme, modellen som svarte sist, lytting, kalenderinnlogging, oppetid og tal på oppgåver.
      */
     @GetMapping("/api/status")
     public Map<String, Object> status() {
-        return Map.of(
+        Map<String, Object> status = new HashMap<>(Map.of(
                 "voice", voiceService.describe(),
                 "brain", "Gemini · " + agentRouter.lastModel(),
                 "elevenlabs", voiceService.available(),
                 "listening", voiceService.available() ? "ElevenLabs Scribe" : "nettlesaren",
+                "calendar", calendarAgent.loginStatus(),
                 "uptimeSeconds", Duration.between(startedAt, Instant.now()).toSeconds(),
-                "tasks", taskRepository.count());
+                "tasks", taskRepository.count()));
+        if (calendarAgent.loginUrl() != null) {
+            status.put("calendarLoginUrl", calendarAgent.loginUrl());
+        }
+        return status;
     }
 }

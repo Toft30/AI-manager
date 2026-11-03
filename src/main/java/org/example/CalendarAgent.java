@@ -41,8 +41,9 @@ import java.util.Locale;
  * Ein under-agent som les og skriv hendingar i Google Kalender.
  *
  * <p>
- * Første gong eit verktøy blir brukt, opnar nettlesaren seg for innlogging hos Google.
- * Tilgangen blir så lagra i tokens-mappa, så innlogginga trengst berre éin gong.
+ * Første gong eit verktøy blir brukt utan lagra tilgang, opnar nettlesaren seg for innlogging hos Google
+ * (i bakgrunnen, så ingen førespurnad ventar på det). Tilgangen blir så lagra i tokens-mappa,
+ * så innlogginga trengst berre éin gong.
  * </p>
  */
 @Component
@@ -58,7 +59,13 @@ public class CalendarAgent {
     private final String calendarId;
     private final ZoneId zone;
 
-    private Calendar service;
+    private static final String USER = "user";
+
+    private NetHttpTransport transport;
+    private GoogleAuthorizationCodeFlow flow;
+    private volatile Calendar service;
+    private volatile boolean loginInProgress;
+    private volatile String loginUrl;
 
     public CalendarAgent(@Value("${google.calendar.credentials-path:credentials.json}") String credentialsPath,
                          @Value("${google.calendar.tokens-dir:tokens}") String tokensDir,
@@ -213,11 +220,100 @@ public class CalendarAgent {
     }
 
     /**
-     * Lagar Calendar-klienten første gong han trengst, og loggar inn via nettlesaren om det ikkje finst lagra tilgang.
+     * @return «innlogga», «ventar på innlogging» eller «ikkje innlogga», til statuspanelet.
+     */
+    public String loginStatus() {
+        if (service != null) {
+            return "innlogga";
+        }
+        if (loginInProgress) {
+            return "ventar på innlogging";
+        }
+        try {
+            return storedCredential() != null ? "innlogga" : "ikkje innlogga";
+        } catch (Exception e) {
+            return "ikkje sett opp";
+        }
+    }
+
+    /**
+     * @return Adressa til Google-innlogginga medan ho ventar, elles null.
+     */
+    public String loginUrl() {
+        return loginUrl;
+    }
+
+    /**
+     * Startar innlogging hos Google i bakgrunnen, viss det ikkje alt er gjort eller pågår.
+     * Nettlesaren opnar innloggingssida; når brukaren er ferdig, blir tilgangen lagra i tokens-mappa.
+     */
+    public synchronized void startLogin() throws Exception {
+        if (service != null || loginInProgress) {
+            return;
+        }
+        GoogleAuthorizationCodeFlow authFlow = flow();
+        loginInProgress = true;
+        Thread login = new Thread(() -> {
+            try {
+                LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
+                Credential credential = new AuthorizationCodeInstalledApp(authFlow, receiver, url -> {
+                    loginUrl = url;
+                    System.out.println("Google Kalender: logg inn her: " + url);
+                    AuthorizationCodeInstalledApp.browse(url);
+                }).authorize(USER);
+                synchronized (CalendarAgent.this) {
+                    service = buildService(credential);
+                }
+                System.out.println("Google Kalender: innlogga.");
+            } catch (Exception e) {
+                System.out.println("Google Kalender: innlogginga feila: " + e.getMessage());
+            } finally {
+                loginInProgress = false;
+                loginUrl = null;
+            }
+        }, "google-kalender-innlogging");
+        login.setDaemon(true);
+        login.start();
+    }
+
+    /**
+     * Lagar Calendar-klienten første gong han trengst.
+     *
+     * <p>
+     * Finst det inga lagra tilgang, blir innlogginga starta i bakgrunnen, og verktøyet svarar med ein gong
+     * at brukaren må logge inn. Før venta førespurnaden på innlogginga utan tidsgrense, og sidan ODIN
+     * tek eitt spørsmål om gongen, hang då alle spørsmåla.
+     * </p>
      */
     private synchronized Calendar calendar() throws Exception {
         if (service != null) {
             return service;
+        }
+        Credential stored = storedCredential();
+        if (stored != null) {
+            service = buildService(stored);
+            return service;
+        }
+        startLogin();
+        throw new IllegalStateException("Brukaren er ikkje innlogga på Google Kalender. Innloggingssida er opna i nettlesaren. "
+                + "Ikkje prøv verktøyet på nytt no; be brukaren logge inn og spørje igjen.");
+    }
+
+    /**
+     * @return Lagra tilgang som framleis kan brukast (same regel som AuthorizationCodeInstalledApp), elles null.
+     */
+    private Credential storedCredential() throws Exception {
+        Credential credential = flow().loadCredential(USER);
+        if (credential != null && (credential.getRefreshToken() != null
+                || credential.getExpiresInSeconds() == null || credential.getExpiresInSeconds() > 60)) {
+            return credential;
+        }
+        return null;
+    }
+
+    private synchronized GoogleAuthorizationCodeFlow flow() throws Exception {
+        if (flow != null) {
+            return flow;
         }
         File credentialsFile = new File(credentialsPath);
         if (!credentialsFile.exists()) {
@@ -225,23 +321,23 @@ public class CalendarAgent {
                     + ". Last ned ein OAuth-klient (Desktop app) frå Google Cloud Console og lagre han der.");
         }
 
-        NetHttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
+        transport = GoogleNetHttpTransport.newTrustedTransport();
         GoogleClientSecrets secrets;
         try (Reader reader = new FileReader(credentialsFile, StandardCharsets.UTF_8)) {
             secrets = GoogleClientSecrets.load(JSON_FACTORY, reader);
         }
 
-        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(transport, JSON_FACTORY, secrets, SCOPES)
+        flow = new GoogleAuthorizationCodeFlow.Builder(transport, JSON_FACTORY, secrets, SCOPES)
                 .setDataStoreFactory(new FileDataStoreFactory(new File(tokensDir)))
                 .setAccessType("offline")
                 .build();
-        LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
-        Credential credential = new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
+        return flow;
+    }
 
-        service = new Calendar.Builder(transport, JSON_FACTORY, credential)
+    private Calendar buildService(Credential credential) {
+        return new Calendar.Builder(transport, JSON_FACTORY, credential)
                 .setApplicationName("AI-Manager")
                 .build();
-        return service;
     }
 
     private EventDateTime eventTime(ZonedDateTime time) {
