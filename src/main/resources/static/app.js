@@ -86,7 +86,7 @@ function setMode(mode) {
     state.mode = mode;
     var chip = $("stateChip");
     chip.className = "state-chip " + mode;
-    chip.textContent = { idle: Live.on ? "LIVE" : "KVILER", thinking: "TENKJER", speaking: "TALAR", listening: "LYTTAR" }[mode];
+    chip.textContent = { idle: Live.on ? "Live" : "Kviler", thinking: "Tenkjer", speaking: "Talar", listening: "Lyttar" }[mode];
 }
 
 /* ── Samtale ──────────────────────────────────────────── */
@@ -149,7 +149,7 @@ function addLine(kind, text) {
     line.className = "line " + kind;
     var who = document.createElement("span");
     who.className = "who";
-    who.textContent = { user: "DU", odin: "ODIN", error: "FEIL" }[kind];
+    who.textContent = { user: "Du", odin: "ODIN", error: "Feil" }[kind];
     line.appendChild(who);
     line.appendChild(document.createTextNode(text));
     $("transcript").appendChild(line);
@@ -552,7 +552,8 @@ function drawReactor() {
         state.level += (target - state.level) * 0.25;
         $("meterFill").style.width = Math.min(100, mic * 400) + "%";
 
-        var color = { idle: "79,216,255", thinking: "255,181,71", speaking: "70,227,154", listening: "255,93,108" }[state.mode];
+        // Same fargar som porteføljen: emerald, amber, teal og rose frå Tailwind.
+        var color = { idle: "52,211,153", thinking: "251,191,36", speaking: "94,234,212", listening: "251,113,133" }[state.mode];
         var speed = state.mode === "thinking" ? 2.4 : 0.6;
         ctx.clearRect(0, 0, W, W);
 
@@ -592,7 +593,7 @@ function drawReactor() {
         // Kjerne
         var core = 55 + state.level * 25 + Math.sin(t * 2) * 2;
         var g = ctx.createRadialGradient(C, C, 0, C, C, core);
-        g.addColorStop(0, "rgba(255,255,255,0.95)");
+        g.addColorStop(0, "rgba(236,253,245,0.95)");
         g.addColorStop(0.4, "rgba(" + color + ",0.85)");
         g.addColorStop(1, "rgba(" + color + ",0.05)");
         ctx.fillStyle = g;
