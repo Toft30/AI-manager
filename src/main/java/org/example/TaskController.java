@@ -5,42 +5,54 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
+import java.util.List;
+
 /**
- * REST-kontroller for å teste AI Manageren.
+ * REST-kontroller for å sende oppgåver til AI Manageren og hente dei ut att.
  */
 @RestController
 public class TaskController {
 
-    private final TaskOrchestratorService orchestratorService;
+    private final ManagerAgent managerAgent;
     private final TaskRepository taskRepository;
 
-    public TaskController(TaskOrchestratorService orchestratorService, TaskRepository taskRepository) {
-        this.orchestratorService = orchestratorService;
+    public TaskController(ManagerAgent managerAgent, TaskRepository taskRepository) {
+        this.managerAgent = managerAgent;
         this.taskRepository = taskRepository;
     }
 
     /**
-     * Eit enkelt endepunkt for å sende inn ei oppgåve til manager-agenten.
-     * Døme på bruk: GET /api/task?taskDescription=Schedule a meeting for tomorrow at 10 AM
-     * Oppgåva blir analysert, broten ned i deloppgåver, og delegert vidare.
+     * Sender inn ei oppgåve til manager-agenten og lagrar ho med status og resultat.
+     * Døme på bruk: GET /api/task?task=Schedule a meeting for tomorrow at 10 AM
      *
-     * @param taskDescription Oppgåveskildring som skal sendast til manageren.
-     * @return Resultatlogg frå orkestreringa.
+     * @param task Oppgåveskildring som skal sendast til manageren.
+     * @return Den lagra oppgåva med status og svar frå AI-modellen.
      */
     @GetMapping("/api/task")
-    public String delegateTask(@RequestParam(defaultValue = "Schedule a meeting for tomorrow at 10 AM") String taskDescription) {
-        System.out.println("Tek imot oppgåve via HTTP: " + taskDescription);
-        return orchestratorService.orchestrateTask(taskDescription);
+    public Task delegateTask(@RequestParam(defaultValue = "Schedule a meeting for tomorrow at 10 AM") String task) {
+        System.out.println("Tek imot oppgåve via HTTP: " + task);
+        Task saved = taskRepository.save(new Task(task));
+
+        saved.setStatus(TaskStatus.PÅGÅANDE);
+        saved = taskRepository.save(saved);
+
+        try {
+            saved.setResult(managerAgent.delegateTask(task));
+            saved.setStatus(TaskStatus.FULLFØRT);
+        } catch (Exception e) {
+            saved.setResult("Feil: " + e.getMessage());
+            saved.setStatus(TaskStatus.FEILA);
+        }
+        return taskRepository.save(saved);
     }
 
     /**
-     * Hentar alle tasks med tilhøyrande subtasks.
-     * Blir brukt asynkront (fetch) av frontend dashboardet.
+     * Hentar alle oppgåver, til bruk i dashboardet.
      *
-     * @return Liste over oppgåver (Task)
+     * @return Liste over alle oppgåver.
      */
     @GetMapping("/api/tasks")
-    public List<Task> getAllTasks() {
+    public List<Task> getTasks() {
         return taskRepository.findAll();
     }
 }

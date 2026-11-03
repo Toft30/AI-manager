@@ -1,11 +1,17 @@
 package org.example;
 
-import jakarta.persistence.*;
-import java.util.ArrayList;
-import java.util.List;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+import java.time.LocalDateTime;
 
 /**
- * Representerer ei oppgåve for agent-systemet i databasen.
+ * Ei oppgåve som er send til manager-agenten, lagra i databasen.
  */
 @Entity
 public class Task {
@@ -14,55 +20,51 @@ public class Task {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(length = 2000)
     private String description;
 
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private TaskStatus status;
 
-    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SubTask> subTasks = new ArrayList<>();
+    @Column(length = 10000)
+    private String result;
 
-    public Task() {
+    private LocalDateTime createdAt;
+
+    protected Task() {
     }
 
-    public Task(String description, String status) {
+    public Task(String description) {
         this.description = description;
-        this.status = status;
+        this.status = TaskStatus.MOTTATT;
+        this.createdAt = LocalDateTime.now();
     }
 
     public Long getId() {
         return id;
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
     public String getDescription() {
         return description;
     }
 
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public String getStatus() {
+    public TaskStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(TaskStatus status) {
         this.status = status;
     }
 
-    public List<SubTask> getSubTasks() {
-        return subTasks;
+    public String getResult() {
+        return result;
     }
 
-    public void setSubTasks(List<SubTask> subTasks) {
-        this.subTasks = subTasks;
+    public void setResult(String result) {
+        this.result = result;
     }
 
-    public void addSubTask(SubTask subTask) {
-        subTasks.add(subTask);
-        subTask.setTask(this);
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 }

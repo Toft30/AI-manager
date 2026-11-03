@@ -1,0 +1,36 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Overview
+
+AI-Manager is a small Spring Boot 3.4 (Java 17) multi-agent prototype. A "manager" LLM agent (Google Gemini via LangChain4j 0.36.2) receives a task from the user and delegates it to sub-agents exposed as LangChain4j tools. Tasks and their results are persisted with JPA to an in-memory H2 database and shown in a static web dashboard.
+
+Code comments, Javadoc, log messages, enum values and UI text are written in Norwegian Nynorsk — keep new code consistent with that.
+
+## Commands
+
+There is no Maven wrapper (`mvnw`) checked in; use a system `mvn`.
+
+- Build: `mvn package`
+- Run: `mvn spring-boot:run` (serves on http://localhost:8080)
+- There are currently no tests (`src/test` does not exist). Once added, run a single test with `mvn test -Dtest=ClassName#method`.
+
+The app fails at startup unless `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) is set in the environment — `AiConfiguration` throws `IllegalStateException` when the key is empty. Never put the key in `application.properties`; that file is tracked in git.
+
+Useful local URLs: dashboard at `/`, H2 console at `/h2-console` (JDBC URL `jdbc:h2:mem:testdb`). Data is lost on restart.
+
+## Architecture
+
+All classes live flat in `org.example` under `src/main/java`.
+
+- **`AiConfiguration`** wires the LLM: builds a `GoogleAiGeminiChatModel` (model from `gemini.model`, default `gemini-2.5-flash`) and creates the `ManagerAgent` bean via `AiServices.builder(...).tools(...)`.
+- **`ManagerAgent`** is an interface only — LangChain4j generates the implementation. Its `@SystemMessage` defines the manager's delegation behavior.
+- **Sub-agents** (currently only `CalendarAgent`, a stub) are Spring `@Component`s with `@Tool`-annotated methods. To add a new sub-agent: create the component, then inject it into `AiConfiguration.managerAgent(...)` and add it to `.tools(...)`. The LLM decides which tool to call based on the `@Tool` description.
+- **`TaskController`** exposes `GET /api/task?task=...` (synchronous: saves a `Task` as `MOTTATT` → `PÅGÅANDE`, calls the agent, then stores the result as `FULLFØRT` or `FEILA`) and `GET /api/tasks` (list all).
+- **`Task` / `TaskRepository` / `TaskStatus`**: JPA entity + Spring Data repository. `TaskStatus` names are used directly as CSS class names in the dashboard, so renaming an enum value requires updating `static/style.css`/`app.js`.
+- **Frontend** (`src/main/resources/static/`): plain HTML/CSS/JS, no build step. `app.js` polls `/api/tasks` every 3 seconds and submits new tasks via `/api/task`.
+
+## Repo notes
+
+- `Test/` is a gitignored local clone of the repo — ignore it when searching or editing.

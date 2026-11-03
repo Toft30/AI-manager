@@ -13,8 +13,11 @@ import org.springframework.beans.factory.annotation.Value;
 @Configuration
 public class AiConfiguration {
 
-    @Value("${GOOGLE_API_KEY:${GEMINI_API_KEY:}}")
+    @Value("${gemini.api.key:}")
     private String apiKey;
+
+    @Value("${gemini.model:gemini-2.5-flash}")
+    private String modelName;
 
     /**
      * Set opp ChatLanguageModel med Google Gemini.
@@ -23,12 +26,12 @@ public class AiConfiguration {
     @Bean
     public ChatLanguageModel chatLanguageModel() {
         if (apiKey == null || apiKey.isEmpty()) {
-            throw new IllegalStateException("Miljøvariabelen GOOGLE_API_KEY eller GEMINI_API_KEY må setjast i miljøet/application.properties.");
+            throw new IllegalStateException("Miljøvariabelen GEMINI_API_KEY eller GOOGLE_API_KEY må setjast.");
         }
 
         return GoogleAiGeminiChatModel.builder()
                 .apiKey(apiKey)
-                .modelName("gemini-1.5-flash")
+                .modelName(modelName)
                 .build();
     }
 
