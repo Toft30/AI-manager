@@ -3,29 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>O.D.I.N.</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <title>ODIN</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="boot" class="boot">
-    <button id="bootBtn" class="boot-btn">
-        <span class="boot-ring"></span>
-        <span class="boot-label">Aktiver ODIN</span>
-    </button>
-    <p class="boot-hint">Klikk for å slå på lyd og mikrofon</p>
+    <div class="boot-card">
+        <div class="pill"><span class="pill-dot"></span>Operational Data &amp; Intelligence Node</div>
+        <h1>Hei, eg er <span class="gradient">ODIN</span>.</h1>
+        <p>Din personlege assistent. Eg snakkar, høyrer og lærer dialekta di.</p>
+        <button id="bootBtn" class="btn btn-primary btn-lg">Aktiver ODIN</button>
+        <p class="boot-hint">Klikk for å slå på lyd og mikrofon</p>
+    </div>
 </div>
 
-<div class="hud">
-    <header class="topbar">
-        <div class="brand">O.D.I.N.<span class="brand-sub">Operational Data &amp; Intelligence Node</span></div>
-        <div class="state-chip" id="stateChip">KVILER</div>
+<nav class="topbar">
+    <div class="topbar-inner">
+        <div class="brand">ODIN<span class="brand-sub">Operational Data &amp; Intelligence Node</span></div>
+        <div class="state-chip" id="stateChip">Kviler</div>
         <div class="clock" id="clock">--:--:--</div>
-    </header>
+    </div>
+</nav>
 
+<div class="hud">
     <aside class="panel telemetry">
-        <h2>Telemetri</h2>
+        <h2>Status</h2>
         <dl>
             <dt>Stemme</dt><dd id="tVoice">-</dd>
             <dt>Lytting</dt><dd id="tListen">-</dd>
@@ -41,7 +43,7 @@
             <li><code>Esc</code> avbryt</li>
             <li><code>/</code> fokus på feltet</li>
         </ul>
-        <h2>Nivå</h2>
+        <h2>Mikrofonnivå</h2>
         <div class="meter"><div class="meter-fill" id="meterFill"></div><div class="meter-threshold" id="meterThreshold"></div></div>
         <h2 class="memory-heading">Ordbok <span id="memoryCount" class="count">0</span></h2>
         <p class="memory-hint">Sei «når eg seier X, meiner eg Y», så lærer ODIN det.</p>
@@ -53,7 +55,7 @@
             </select>
             <input type="text" id="memoryTerm" placeholder="Dialektord" aria-label="Ord" />
             <input type="text" id="memoryMeaning" placeholder="Tyding" aria-label="Tyding" />
-            <button type="submit" title="Legg til">+</button>
+            <button type="submit" class="btn btn-primary" title="Legg til">Legg til</button>
         </form>
         <ul id="memoryList" class="memory-list"></ul>
     </aside>
@@ -65,9 +67,9 @@
         <div class="transcript" id="transcript"></div>
         <form class="askbar" id="askForm" autocomplete="off">
             <input type="text" id="taskInput" placeholder="Spør ODIN om noko, eller snakk til han ..." />
-            <button type="button" id="micBtn" class="icon-btn" title="Hald inne / klikk for å snakke">MIC</button>
-            <button type="button" id="liveBtn" class="icon-btn" title="Handfri samtale">LIVE</button>
-            <button type="submit" id="sendTaskBtn">SEND</button>
+            <button type="button" id="micBtn" class="btn btn-secondary icon-btn" title="Klikk for å snakke, klikk att for å sende">Mikrofon</button>
+            <button type="button" id="liveBtn" class="btn btn-secondary icon-btn" title="Handfri samtale">Live</button>
+            <button type="submit" id="sendTaskBtn" class="btn btn-primary">Send</button>
         </form>
     </main>
 
