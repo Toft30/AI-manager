@@ -94,7 +94,7 @@ public class TaskController {
     }
 
     /**
-     * Startar ein ny samtale, slik at JARVIS gløymer det som vart sagt før.
+     * Startar ein ny samtale, slik at ODIN gløymer det som vart sagt før.
      */
     @PostMapping("/api/reset")
     public void reset() {

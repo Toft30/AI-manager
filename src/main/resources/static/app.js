@@ -1,5 +1,5 @@
 /*
- * JARVIS-HUD: samtale med manager-agenten, stemme ut via /api/speak (ElevenLabs)
+ * ODIN-HUD: samtale med manager-agenten, stemme ut via /api/speak (ElevenLabs)
  * og stemme inn via /api/listen. Utan ElevenLabs-nøkkel fell han tilbake til
  * nettlesaren si eiga stemme og talegjenkjenning.
  */
@@ -27,7 +27,7 @@ var state = {
 };
 
 // Til feilsøking og verifisering: kva som sist vart lese opp.
-window.jarvis = { lastSpeech: null, state: state };
+window.odin = { lastSpeech: null, state: state };
 
 /* ── Oppstart ─────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", function () {
@@ -56,7 +56,7 @@ function boot() {
     state.playAnalyser.fftSize = 512;
     state.playAnalyser.connect(state.audioCtx.destination);
     $("boot").classList.add("gone");
-    addLine("jarvis", GREETING);
+    addLine("odin", GREETING);
     say(GREETING);
 }
 
@@ -72,12 +72,12 @@ function handleInput(text) {
     if (text === "/ny") {
         fetch("/api/reset", { method: "POST" });
         $("transcript").innerHTML = "";
-        addLine("jarvis", "Blanke ark. Kva no?");
+        addLine("odin", "Blanke ark. Kva no?");
         return;
     }
     if (text === "/stille") {
         state.muted = !state.muted;
-        addLine("jarvis", state.muted ? "Opplesing er slått av." : "Opplesing er slått på att.");
+        addLine("odin", state.muted ? "Opplesing er slått av." : "Opplesing er slått på att.");
         return;
     }
     ask(text);
@@ -101,7 +101,7 @@ function ask(text) {
                 addLine("error", reply);
                 return say("Beklagar, noko gjekk gale. " + reply.replace(/^Feil:\s*/, "").slice(0, 160));
             }
-            addLine("jarvis", reply);
+            addLine("odin", reply);
             return say(reply);
         })
         .catch(function (e) {
@@ -120,7 +120,7 @@ function addLine(kind, text) {
     line.className = "line " + kind;
     var who = document.createElement("span");
     who.className = "who";
-    who.textContent = { user: "DU", jarvis: "JARVIS", error: "FEIL" }[kind];
+    who.textContent = { user: "DU", odin: "ODIN", error: "FEIL" }[kind];
     line.appendChild(who);
     line.appendChild(document.createTextNode(text));
     $("transcript").appendChild(line);
@@ -133,7 +133,7 @@ function say(text) {
     stopAudio();
     setMode("speaking");
     var record = { text: text, engine: "elevenlabs", status: null, bytes: 0, duration: 0, startedAt: null, endedAt: null };
-    window.jarvis.lastSpeech = record;
+    window.odin.lastSpeech = record;
 
     return fetch("/api/speak", {
         method: "POST",
@@ -287,7 +287,7 @@ function browserRecognize() {
 
 /*
  * Live-modus: handfri samtale. Terskelen blir kalibrert frå støynivået i rommet,
- * og lyttinga er sett på pause medan JARVIS tenkjer eller talar, så han ikkje
+ * og lyttinga er sett på pause medan ODIN tenkjer eller talar, så han ikkje
  * transkriberer seg sjølv.
  */
 var Live = {

@@ -65,7 +65,7 @@ public class AiConfiguration {
     }
 
     /**
-     * Samtaleminnet til JARVIS, så han hugsar det som vart sagt tidlegare i samtalen.
+     * Samtaleminnet til ODIN, så han hugsar det som vart sagt tidlegare i samtalen.
      * Hovud- og reservemodellen deler det same minnet.
      * @return Eit minne med dei siste 30 meldingane.
      */

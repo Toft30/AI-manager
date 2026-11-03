@@ -118,8 +118,8 @@ dd { margin: 0; color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
 .line { padding: 8px 12px; border-left: 2px solid var(--line); font-size: 17px; line-height: 1.35; }
 .line .who { font-size: 11px; letter-spacing: 3px; color: var(--muted); display: block; }
 .line.user { border-color: var(--muted); color: var(--muted); }
-.line.jarvis { border-color: var(--cyan); }
-.line.jarvis .who { color: var(--cyan); }
+.line.odin { border-color: var(--cyan); }
+.line.odin .who { color: var(--cyan); }
 .line.error { border-color: var(--status-feila); color: var(--status-feila); }
 
 .askbar { width: 100%; max-width: 760px; display: flex; gap: 8px; margin-top: 10px; }

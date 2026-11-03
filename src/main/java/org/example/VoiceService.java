@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Stemma til JARVIS: tekst-til-tale og tale-til-tekst via ElevenLabs.
+ * Stemma til ODIN: tekst-til-tale og tale-til-tekst via ElevenLabs.
  *
  * <p>
  * Nøkkelen blir verande på serveren. Nettlesaren får berre mp3-bytar frå /api/speak,
@@ -108,7 +108,7 @@ public class VoiceService {
         String type = mime == null || mime.isBlank() ? "audio/webm" : mime;
         String ext = type.contains("ogg") ? "ogg" : type.contains("mp4") ? "mp4" : type.contains("wav") ? "wav"
                 : type.contains("mpeg") ? "mp3" : "webm";
-        String boundary = "----jarvis" + UUID.randomUUID().toString().replace("-", "");
+        String boundary = "----odin" + UUID.randomUUID().toString().replace("-", "");
 
         ByteArrayOutputStream body = new ByteArrayOutputStream();
         writeField(body, boundary, "model_id", sttModel);
