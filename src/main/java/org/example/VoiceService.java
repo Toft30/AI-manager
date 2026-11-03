@@ -13,6 +13,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -29,6 +30,7 @@ public class VoiceService {
 
     private static final String BASE_URL = "https://api.elevenlabs.io/v1";
     private static final int MAX_TEXT_LENGTH = 2500;
+    private static final int MAX_KEYTERMS = 100;
 
     private final String apiKey;
     private final String voiceId;
@@ -36,20 +38,23 @@ public class VoiceService {
     private final String sttModel;
     private final String sttLanguage;
     private final ObjectMapper mapper;
+    private final DialectMemory dialectMemory;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
     public VoiceService(@Value("${elevenlabs.api-key:}") String apiKey,
                         @Value("${elevenlabs.voice-id:JBFqnCBsd6RMkjVDRZzb}") String voiceId,
                         @Value("${elevenlabs.model:eleven_flash_v2_5}") String model,
-                        @Value("${elevenlabs.stt-model:scribe_v1}") String sttModel,
+                        @Value("${elevenlabs.stt-model:scribe_v2}") String sttModel,
                         @Value("${elevenlabs.stt-language:nor}") String sttLanguage,
-                        ObjectMapper mapper) {
+                        ObjectMapper mapper,
+                        DialectMemory dialectMemory) {
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.voiceId = voiceId;
         this.model = model;
         this.sttModel = sttModel;
         this.sttLanguage = sttLanguage == null ? "" : sttLanguage.trim();
         this.mapper = mapper;
+        this.dialectMemory = dialectMemory;
     }
 
     /**
@@ -116,6 +121,10 @@ public class VoiceService {
         if (!sttLanguage.isBlank()) {
             writeField(body, boundary, "language_code", sttLanguage);
         }
+        // Ord frå ordboka blir sende med som hint, så talegjenkjenninga oftare høyrer dei rett.
+        for (String term : keyterms()) {
+            writeField(body, boundary, "keyterms", term);
+        }
         body.write(("--" + boundary + "\r\n"
                 + "Content-Disposition: form-data; name=\"file\"; filename=\"tur." + ext + "\"\r\n"
                 + "Content-Type: " + type + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
@@ -156,6 +165,18 @@ public class VoiceService {
                 .replaceAll("\\s+", " ")
                 .trim();
         return s.length() > MAX_TEXT_LENGTH ? s.substring(0, MAX_TEXT_LENGTH) : s;
+    }
+
+    /**
+     * Ord frå ordboka i ei form ElevenLabs godtek: berre bokstavar, tal, mellomrom, bindestrek og apostrof.
+     */
+    private List<String> keyterms() {
+        return dialectMemory.keyterms().stream()
+                .map(t -> t.replaceAll("[^\\p{L}\\p{N} '\\-]", "").trim())
+                .filter(t -> !t.isEmpty())
+                .distinct()
+                .limit(MAX_KEYTERMS)
+                .toList();
     }
 
     private void requireKey() {

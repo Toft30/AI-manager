@@ -106,6 +106,36 @@ dd { margin: 0; color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
 .meter-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--cyan-dim), var(--cyan)); transition: width .06s; }
 .meter-threshold { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--amber); left: 0; display: none; }
 
+/* ── Ordbok ───────────────────────────────────────────── */
+.memory-heading { margin-top: 22px !important; display: flex; justify-content: space-between; }
+.count { color: var(--muted); font-family: 'Share Tech Mono', monospace; letter-spacing: 0; }
+.memory-hint { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+.memory-form { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 10px; }
+.memory-form select, .memory-form input {
+    background: rgba(0, 0, 0, .45); color: var(--text); border: 1px solid var(--line);
+    padding: 5px 6px; font: 500 14px 'Rajdhani', sans-serif; min-width: 0; outline: none;
+}
+.memory-form select { grid-column: 1 / -1; }
+.memory-form input:focus, .memory-form select:focus { border-color: var(--cyan); }
+.memory-form button {
+    grid-column: 1 / -1; background: transparent; color: var(--cyan); border: 1px solid var(--cyan);
+    cursor: pointer; font: 700 16px 'Rajdhani', sans-serif; padding: 2px;
+}
+.memory-form button:hover { background: rgba(79,216,255,.12); }
+.memory-list { list-style: none; padding: 0; margin: 0; font-size: 14px; }
+.memory-list li {
+    display: flex; gap: 6px; align-items: baseline; padding: 4px 0;
+    border-bottom: 1px dashed var(--line);
+}
+.memory-list .kind { font: 10px 'Share Tech Mono', monospace; color: var(--muted); flex: 0 0 auto; }
+.memory-list .text { flex: 1; overflow-wrap: anywhere; }
+.memory-list .text b { color: var(--cyan); font-weight: 600; }
+.memory-list li.fresh .text b { color: var(--amber); }
+.memory-list button {
+    background: none; border: none; color: var(--muted); cursor: pointer; font-size: 15px; padding: 0 2px;
+}
+.memory-list button:hover { color: var(--status-feila); }
+
 /* ── Kjerne ───────────────────────────────────────────── */
 .core-area { display: flex; flex-direction: column; align-items: center; min-height: 0; }
 .reactor { flex: 0 0 auto; display: flex; justify-content: center; }

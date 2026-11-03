@@ -17,11 +17,14 @@ public class TaskController {
     private final AgentRouter agentRouter;
     private final TaskRepository taskRepository;
     private final ChatMemory chatMemory;
+    private final DialectMemory dialectMemory;
 
-    public TaskController(AgentRouter agentRouter, TaskRepository taskRepository, ChatMemory chatMemory) {
+    public TaskController(AgentRouter agentRouter, TaskRepository taskRepository, ChatMemory chatMemory,
+                          DialectMemory dialectMemory) {
         this.agentRouter = agentRouter;
         this.taskRepository = taskRepository;
         this.chatMemory = chatMemory;
+        this.dialectMemory = dialectMemory;
     }
 
     /**
@@ -40,6 +43,8 @@ public class TaskController {
         saved = taskRepository.save(saved);
 
         try {
+            // Tydelege rettingar blir lagra før modellen svarar, så han ser dei i ordboka med ein gong.
+            dialectMemory.learnFromText(task);
             saved.setResult(agentRouter.ask(task));
             saved.setStatus(TaskStatus.FULLFØRT);
         } catch (Exception e) {

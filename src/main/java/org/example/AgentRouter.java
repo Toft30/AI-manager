@@ -41,13 +41,15 @@ public class AgentRouter {
     private final List<Route> routes;
     private final ChatMemory chatMemory;
     private final Supplier<String> clock;
+    private final Supplier<String> memory;
     private final Map<String, Instant> pausedUntil = new ConcurrentHashMap<>();
     private volatile String lastModel = "-";
 
-    public AgentRouter(List<Route> routes, ChatMemory chatMemory, Supplier<String> clock) {
+    public AgentRouter(List<Route> routes, ChatMemory chatMemory, Supplier<String> clock, Supplier<String> memory) {
         this.routes = List.copyOf(routes);
         this.chatMemory = chatMemory;
         this.clock = clock;
+        this.memory = memory;
     }
 
     /**
@@ -59,6 +61,7 @@ public class AgentRouter {
     public synchronized String ask(String task) {
         List<ChatMessage> memoryBefore = new ArrayList<>(chatMemory.messages());
         String now = clock.get();
+        String learned = memory.get();
         RuntimeException lastError = null;
 
         for (int i = 0; i < routes.size(); i++) {
@@ -68,7 +71,7 @@ public class AgentRouter {
                 continue;
             }
             try {
-                String answer = route.agent().delegateTask(task, now);
+                String answer = route.agent().delegateTask(task, now, learned);
                 lastModel = route.model();
                 return answer;
             } catch (RuntimeException e) {

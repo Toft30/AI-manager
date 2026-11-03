@@ -76,10 +76,11 @@ public class AiConfiguration {
      * Lagar kjeda av modellar: hovudmodellen først, så reservemodellane i rekkjefølgje.
      * @param chatMemory Samtaleminnet.
      * @param calendarAgent CalendarAgent-verktøyet for å planleggje møter.
+     * @param dialectMemory Ordboka, som både blir lagd i systemmeldinga og gir ODIN verktøy for å lære.
      * @return Ein router som vel første tilgjengelege modell.
      */
     @Bean
-    public AgentRouter agentRouter(ChatMemory chatMemory, CalendarAgent calendarAgent) {
+    public AgentRouter agentRouter(ChatMemory chatMemory, CalendarAgent calendarAgent, DialectMemory dialectMemory) {
         List<String> models = new ArrayList<>();
         models.add(modelName);
         fallbackModels.stream().map(String::trim).filter(m -> !m.isEmpty() && !models.contains(m)).forEach(models::add);
@@ -88,16 +89,17 @@ public class AiConfiguration {
         for (int i = 0; i < models.size(); i++) {
             // Ingen nye forsøk før den siste modellen: neste modell i kjeda er det nye forsøket.
             int retries = i == models.size() - 1 ? maxRetries : 0;
-            routes.add(new AgentRouter.Route(models.get(i), agent(models.get(i), retries, chatMemory, calendarAgent)));
+            routes.add(new AgentRouter.Route(models.get(i), agent(models.get(i), retries, chatMemory, calendarAgent, dialectMemory)));
         }
-        return new AgentRouter(routes, chatMemory, calendarAgent::getCurrentDateTime);
+        return new AgentRouter(routes, chatMemory, calendarAgent::getCurrentDateTime, dialectMemory::render);
     }
 
-    private ManagerAgent agent(String name, int retries, ChatMemory chatMemory, CalendarAgent calendarAgent) {
+    private ManagerAgent agent(String name, int retries, ChatMemory chatMemory,
+                               CalendarAgent calendarAgent, DialectMemory dialectMemory) {
         return AiServices.builder(ManagerAgent.class)
                 .chatModel(gemini(name, retries))
                 .chatMemory(chatMemory)
-                .tools(calendarAgent)
+                .tools(calendarAgent, dialectMemory)
                 .build();
     }
 }

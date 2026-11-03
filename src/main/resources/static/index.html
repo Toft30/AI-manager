@@ -42,6 +42,19 @@
         </ul>
         <h2>Nivå</h2>
         <div class="meter"><div class="meter-fill" id="meterFill"></div><div class="meter-threshold" id="meterThreshold"></div></div>
+        <h2 class="memory-heading">Ordbok <span id="memoryCount" class="count">0</span></h2>
+        <p class="memory-hint">Sei «når eg seier X, meiner eg Y», så lærer ODIN det.</p>
+        <form id="memoryForm" class="memory-form" autocomplete="off">
+            <select id="memoryKind" aria-label="Type">
+                <option value="ORD">Ord</option>
+                <option value="FEILHØYRING">Feilhøyrt</option>
+                <option value="FAKTA">Fakta</option>
+            </select>
+            <input type="text" id="memoryTerm" placeholder="Dialektord" aria-label="Ord" />
+            <input type="text" id="memoryMeaning" placeholder="Tyding" aria-label="Tyding" />
+            <button type="submit" title="Legg til">+</button>
+        </form>
+        <ul id="memoryList" class="memory-list"></ul>
     </aside>
 
     <main class="core-area">

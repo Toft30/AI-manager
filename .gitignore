@@ -46,3 +46,6 @@ tokens/
 
 ### Hemmelege nøklar ###
 .env
+
+### Ordboka til ODIN (personleg) ###
+minne/

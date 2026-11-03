@@ -41,12 +41,34 @@ document.addEventListener("DOMContentLoaded", function () {
     $("liveBtn").addEventListener("click", function () { Live.on ? Live.stop() : Live.start(); });
     document.addEventListener("keydown", function (e) {
         if (e.key === "Escape") cancelAll();
-        if (e.key === "/" && document.activeElement !== $("taskInput")) { e.preventDefault(); $("taskInput").focus(); }
+        var typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+        if (e.key === "/" && !typing) { e.preventDefault(); $("taskInput").focus(); }
+    });
+    $("memoryForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var term = $("memoryTerm").value.trim();
+        if (!term) return;
+        fetch("/api/memory", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ kind: $("memoryKind").value, term: term, meaning: $("memoryMeaning").value.trim() })
+        }).then(function () {
+            $("memoryTerm").value = "";
+            $("memoryMeaning").value = "";
+            fetchMemory();
+        });
+    });
+    $("memoryKind").addEventListener("change", function () {
+        var kind = $("memoryKind").value;
+        $("memoryTerm").placeholder = { ORD: "Dialektord", "FEILHØYRING": "Høyrt som", FAKTA: "Faktum" }[kind];
+        $("memoryMeaning").placeholder = kind === "FAKTA" ? "(tomt)" : kind === "ORD" ? "Tyding" : "Meinte";
+        $("memoryMeaning").disabled = kind === "FAKTA";
     });
 
     tickClock(); setInterval(tickClock, 1000);
     fetchStatus(); setInterval(fetchStatus, 5000);
     fetchTasks(); setInterval(fetchTasks, 3000);
+    fetchMemory(); setInterval(fetchMemory, 5000);
     drawReactor();
 });
 
@@ -96,6 +118,7 @@ function ask(text) {
         .then(function (r) { return r.json(); })
         .then(function (task) {
             fetchTasks();
+            fetchMemory();
             var reply = task.result || "Eg fekk ikkje noko svar.";
             if (task.status === "FEILA") {
                 addLine("error", reply);
@@ -427,6 +450,57 @@ function renderTasks(tasks) {
         }
         list.appendChild(card);
     });
+}
+
+/* ── Ordbok ───────────────────────────────────────────── */
+var knownMemoryIds = null;
+
+function fetchMemory() {
+    fetch("/api/memory").then(function (r) { return r.json(); }).then(renderMemory)
+        .catch(function (e) { console.error("Klarte ikkje å hente ordboka:", e); });
+}
+
+var lastMemoryJson = null;
+
+function renderMemory(entries) {
+    // Teikn berre på nytt når noko er endra, så eit klikk på × ikkje forsvinn midt i ei oppdatering.
+    var json = JSON.stringify(entries);
+    if (json === lastMemoryJson) return;
+    lastMemoryJson = json;
+    var list = $("memoryList");
+    $("memoryCount").textContent = entries.length;
+    list.innerHTML = "";
+    if (entries.length === 0) {
+        list.innerHTML = "<li class='empty'>Ingenting lært enno.</li>";
+    }
+    // Nyaste først, og merk det ODIN lærte sidan sist med ein annan farge.
+    entries.slice().reverse().forEach(function (entry) {
+        var li = document.createElement("li");
+        if (knownMemoryIds && knownMemoryIds.indexOf(entry.id) === -1) li.className = "fresh";
+
+        var kind = document.createElement("span");
+        kind.className = "kind";
+        kind.textContent = { ORD: "ORD", "FEILHØYRING": "HØYRT", FAKTA: "FAKTA" }[entry.kind];
+        li.appendChild(kind);
+
+        var text = document.createElement("span");
+        text.className = "text";
+        var term = document.createElement("b");
+        term.textContent = entry.term;
+        text.appendChild(term);
+        if (entry.meaning) text.appendChild(document.createTextNode(" → " + entry.meaning));
+        li.appendChild(text);
+
+        var del = document.createElement("button");
+        del.textContent = "×";
+        del.title = "Gløym";
+        del.addEventListener("click", function () {
+            fetch("/api/memory/" + encodeURIComponent(entry.id), { method: "DELETE" }).then(fetchMemory);
+        });
+        li.appendChild(del);
+        list.appendChild(li);
+    });
+    if (!knownMemoryIds) knownMemoryIds = entries.map(function (e) { return e.id; });
 }
 
 function statusBadge(status) {
