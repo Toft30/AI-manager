@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Ein under-agent som les og skriv hendingar i Google Kalender.
@@ -58,6 +59,8 @@ public class CalendarAgent {
     private final String calendarId;
     private final ZoneId zone;
 
+    private final AtomicLong changes = new AtomicLong();
+
     private Calendar service;
 
     public CalendarAgent(@Value("${google.calendar.credentials-path:credentials.json}") String credentialsPath,
@@ -74,7 +77,8 @@ public class CalendarAgent {
      * Gir modellen dagens dato og klokkeslett, slik at han kan tolke ord som «i morgon» og «neste fredag».
      * @return Noverande tidspunkt i kalenderen si tidssone.
      */
-    @Tool("Returns the current date, weekday and time. Call this before interpreting relative dates like 'tomorrow' or 'next Monday'.")
+    @Tool("Returns the current date, weekday and time. The current time is already in your instructions, "
+            + "so only call this if you need the time to the second.")
     public String getCurrentDateTime() {
         return ZonedDateTime.now(zone).format(VIS_FORMAT) + " (ISO: " + LocalDateTime.now(zone).withNano(0) + ", tidssone " + zone + ")";
     }
@@ -97,7 +101,7 @@ public class CalendarAgent {
         System.out.println("CalendarAgent opprettar møte: " + title + " " + startTime);
         try {
             ZonedDateTime start = LocalDateTime.parse(startTime).atZone(zone);
-            ZonedDateTime end = start.plusMinutes(durationMinutes);
+            ZonedDateTime end = start.plusMinutes(durationMinutes > 0 ? durationMinutes : 60);
 
             Event event = new Event()
                     .setSummary(title)
@@ -117,6 +121,7 @@ public class CalendarAgent {
             Event created = calendar().events().insert(calendarId, event)
                     .setSendUpdates(guests.isEmpty() ? "none" : "all")
                     .execute();
+            changes.incrementAndGet();
             return ToolResponse.ok("Møtet «" + created.getSummary() + "» er oppretta " + start.format(VIS_FORMAT)
                     + " (id: " + created.getId() + ", lenkje: " + created.getHtmlLink() + ")").toString();
         } catch (Exception e) {
@@ -206,10 +211,20 @@ public class CalendarAgent {
     public String deleteMeeting(@P("The id of the event to delete") String eventId) {
         try {
             calendar().events().delete(calendarId, eventId).execute();
+            changes.incrementAndGet();
             return ToolResponse.ok("Hendinga med id " + eventId + " er sletta.").toString();
         } catch (Exception e) {
             return ToolResponse.failed("Klarte ikkje å slette hendinga: " + e.getMessage()).toString();
         }
+    }
+
+    /**
+     * Kor mange gonger kalenderen er endra (møte oppretta eller sletta) sidan oppstart.
+     * AgentRouter brukar dette for å sjå om eit mislukka forsøk alt hadde endra noko.
+     * @return Talet på endringar.
+     */
+    public long changeCount() {
+        return changes.get();
     }
 
     /**

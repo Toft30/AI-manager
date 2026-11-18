@@ -55,10 +55,22 @@ public class TaskController {
             saved.setResult(agentRouter.ask(task));
             saved.setStatus(TaskStatus.FULLFØRT);
         } catch (Exception e) {
-            saved.setResult("Feil: " + e.getMessage());
+            saved.setResult("Feil: " + spokenError(e));
             saved.setStatus(TaskStatus.FEILA);
         }
         return taskRepository.save(saved);
+    }
+
+    /**
+     * Gir ei kort feilmelding som kan lesast høgt. Den fulle feilen, ofte lang JSON frå Google, blir berre logga.
+     */
+    static String spokenError(Exception e) {
+        if (e instanceof AgentException) {
+            System.out.println("Oppgåva feila: " + e.getCause());
+            return e.getMessage();
+        }
+        System.out.println("Oppgåva feila uventa: " + e);
+        return "Noko gjekk gale. Sjå loggen for detaljar.";
     }
 
     /**

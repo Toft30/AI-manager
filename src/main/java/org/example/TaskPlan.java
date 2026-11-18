@@ -3,7 +3,7 @@ package org.example;
 import java.util.List;
 
 /**
- * Representerer ein strukturert plan med deloppgåver frå ManagerAgent / PlannerAgent.
+ * Representerer ein strukturert plan med deloppgåver frå PlannerAgent.
  *
  * <p>
  * Denne record-klassen blir brukt for å ta imot strukturert output frå språkmodellen

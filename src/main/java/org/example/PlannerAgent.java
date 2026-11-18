@@ -29,6 +29,6 @@ public interface PlannerAgent {
             + "Er forespørselen enkel, er éi deloppgåve nok. Skriv kvar deloppgåve som ein sjølvstendig instruks "
             + "med alle detaljar ho treng, som tidspunkt og namn, sidan ho blir utført åleine. "
             + "Akkurat no er det {{now}}. Skriv på same språk som brukaren.")
-    TaskDecompositionResult decomposeTask(@UserMessage String taskDescription, @V("now") String now,
+    TaskPlan decomposeTask(@UserMessage String taskDescription, @V("now") String now,
                                           @V("maxSubTasks") int maxSubTasks);
 }

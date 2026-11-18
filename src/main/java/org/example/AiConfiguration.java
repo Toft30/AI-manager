@@ -6,6 +6,8 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.googleai.GeminiThinkingConfig;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.service.AiServices;
+import dev.langchain4j.service.tool.ToolArgumentsErrorHandler;
+import dev.langchain4j.service.tool.ToolExecutionErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +21,11 @@ import java.util.List;
  */
 @Configuration
 public class AiConfiguration {
+
+    /** Det modellen får sjå når eit verktøy kastar eit uventa unntak. */
+    static final String UNEXPECTED_TOOL_ERROR = ToolResponse.failed(
+            "Verktøyet feila uventa. Ikkje prøv det same kallet igjen; fortel brukaren kort at det ikkje gjekk.")
+            .toString();
 
     @Value("${gemini.api.key:}")
     private String apiKey;
@@ -96,12 +103,21 @@ public class AiConfiguration {
                     .chatModel(model)
                     .chatMemory(chatMemory)
                     .tools(calendarAgent, dialectMemory, taskUpdaterTool)
+                    // Feil i argumenta frå modellen er skrivne for han, så han kan rette dei og prøve igjen.
+                    .toolArgumentsErrorHandler(ToolArgumentsErrorHandler.sendExceptionMessageToLlm())
+                    // Verktøya svarar sjølve med ToolResponse ved kjende feil. Uventa unntak kan innehalde
+                    // filstiar eller svar frå Google, så modellen får berre ei generell melding og den
+                    // eigentlege feilen blir logga. Å feile heile kallet ville fått AgentRouter til å
+                    // prøve neste modell, som kunne gjenteke verktøykall som alt hadde lukkast.
+                    .toolExecutionErrorHandler(ToolExecutionErrorHandler.sendGenericMessageToLlmUnlessVisibleToLlm(
+                            UNEXPECTED_TOOL_ERROR))
                     .build();
             PlannerAgent planner = AiServices.builder(PlannerAgent.class)
                     .chatModel(model)
                     .build();
             routes.add(new AgentRouter.Route(models.get(i), agent, planner));
         }
-        return new AgentRouter(routes, chatMemory, calendarAgent::getCurrentDateTime, dialectMemory::render);
+        return new AgentRouter(routes, chatMemory, calendarAgent::getCurrentDateTime, dialectMemory::render,
+                calendarAgent::changeCount);
     }
 }

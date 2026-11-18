@@ -39,7 +39,8 @@ public class MemoryController {
     @PostMapping("/api/memory")
     public ResponseEntity<Map<String, String>> add(@RequestBody Map<String, String> body) {
         try {
-            DialectMemory.Kind kind = DialectMemory.Kind.valueOf(body.getOrDefault("kind", "ORD"));
+            String kindName = body.get("kind");
+            DialectMemory.Kind kind = DialectMemory.Kind.valueOf(kindName == null ? "ORD" : kindName);
             return ResponseEntity.ok(Map.of("message", dialectMemory.add(kind, body.get("term"), body.get("meaning"))));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Ukjend type: " + body.get("kind")));
