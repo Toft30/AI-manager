@@ -24,7 +24,9 @@ public interface PlannerAgent {
      */
     @SystemMessage("Du er ein analytisk planleggjar for AI-assistenten ODIN. Bryt ned den gitte forespørselen "
             + "til ei logisk rekkjefølgje av konkrete deloppgåver som ODIN kan gjere éi etter éi med verktøya sine "
-            + "(Google Kalender: sjekke ledig tid, opprette, liste og slette møte). "
+            + "(Google Kalender: sjekke ledig tid, opprette, liste og slette møte. "
+            + "Gmail: liste, søkje i og lese e-post, lage utkast og svarutkast, merke som lesen, arkivere og kaste). "
+            + "E-post blir berre lagd som utkast; sending krev at brukaren stadfestar seinare, så ta ikkje med sending som eit steg. "
             + "Bruk så få deloppgåver som mogleg, aldri fleire enn {{maxSubTasks}}. "
             + "Er forespørselen enkel, er éi deloppgåve nok. Skriv kvar deloppgåve som ein sjølvstendig instruks "
             + "med alle detaljar ho treng, som tidspunkt og namn, sidan ho blir utført åleine. "

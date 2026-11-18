@@ -19,14 +19,17 @@ public class TaskController {
     private final ChatMemory chatMemory;
     private final DialectMemory dialectMemory;
     private final TaskOrchestratorService taskOrchestratorService;
+    private final EmailAgent emailAgent;
 
     public TaskController(AgentRouter agentRouter, TaskRepository taskRepository, ChatMemory chatMemory,
-                          DialectMemory dialectMemory, TaskOrchestratorService taskOrchestratorService) {
+                          DialectMemory dialectMemory, TaskOrchestratorService taskOrchestratorService,
+                          EmailAgent emailAgent) {
         this.agentRouter = agentRouter;
         this.taskRepository = taskRepository;
         this.chatMemory = chatMemory;
         this.dialectMemory = dialectMemory;
         this.taskOrchestratorService = taskOrchestratorService;
+        this.emailAgent = emailAgent;
     }
 
     /**
@@ -46,6 +49,8 @@ public class TaskController {
         saved.setStatus(TaskStatus.PÅGÅANDE);
         saved = taskRepository.save(saved);
 
+        // Nytt spørsmål: utkast frå førre spørsmål kan no sendast, men berre om brukaren stadfestar det her.
+        emailAgent.newTurn(task);
         try {
             // Tydelege rettingar blir lagra før modellen svarar, så han ser dei i ordboka med ein gong.
             dialectMemory.learnFromText(task);

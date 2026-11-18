@@ -85,11 +85,12 @@ public class AiConfiguration {
      * @param calendarAgent CalendarAgent-verktøyet for å planleggje møter.
      * @param dialectMemory Ordboka, som både blir lagd i systemmeldinga og gir ODIN verktøy for å lære.
      * @param taskUpdaterTool Verktøyet for å oppdatere status på oppgåver og deloppgåver.
+     * @param emailAgent EmailAgent-verktøyet for å lese, skrive og rydde e-post i Gmail.
      * @return Ein router som vel første tilgjengelege modell.
      */
     @Bean
     public AgentRouter agentRouter(ChatMemory chatMemory, CalendarAgent calendarAgent, DialectMemory dialectMemory,
-                                   TaskUpdaterTool taskUpdaterTool) {
+                                   TaskUpdaterTool taskUpdaterTool, EmailAgent emailAgent) {
         List<String> models = new ArrayList<>();
         models.add(modelName);
         fallbackModels.stream().map(String::trim).filter(m -> !m.isEmpty() && !models.contains(m)).forEach(models::add);
@@ -102,7 +103,7 @@ public class AiConfiguration {
             ManagerAgent agent = AiServices.builder(ManagerAgent.class)
                     .chatModel(model)
                     .chatMemory(chatMemory)
-                    .tools(calendarAgent, dialectMemory, taskUpdaterTool)
+                    .tools(calendarAgent, emailAgent, dialectMemory, taskUpdaterTool)
                     // Feil i argumenta frå modellen er skrivne for han, så han kan rette dei og prøve igjen.
                     .toolArgumentsErrorHandler(ToolArgumentsErrorHandler.sendExceptionMessageToLlm())
                     // Verktøya svarar sjølve med ToolResponse ved kjende feil. Uventa unntak kan innehalde
@@ -118,6 +119,6 @@ public class AiConfiguration {
             routes.add(new AgentRouter.Route(models.get(i), agent, planner));
         }
         return new AgentRouter(routes, chatMemory, calendarAgent::getCurrentDateTime, dialectMemory::render,
-                calendarAgent::changeCount);
+                () -> calendarAgent.changeCount() + emailAgent.changeCount());
     }
 }

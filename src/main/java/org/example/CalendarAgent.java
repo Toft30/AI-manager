@@ -1,18 +1,7 @@
 package org.example;
 
-import com.google.api.client.auth.oauth2.Credential;
-import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
-import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
-import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.util.DateTime;
-import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.api.services.calendar.Calendar;
-import com.google.api.services.calendar.CalendarScopes;
 import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.EventAttendee;
 import com.google.api.services.calendar.model.EventDateTime;
@@ -22,10 +11,6 @@ import dev.langchain4j.agent.tool.Tool;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,20 +27,16 @@ import java.util.concurrent.atomic.AtomicLong;
  * Ein under-agent som les og skriv hendingar i Google Kalender.
  *
  * <p>
- * Første gong eit verktøy blir brukt, opnar nettlesaren seg for innlogging hos Google.
- * Tilgangen blir så lagra i tokens-mappa, så innlogginga trengst berre éin gong.
+ * Innlogginga hos Google skjer i {@link GoogleAuth}, som kalenderen deler med Gmail.
  * </p>
  */
 @Component
 public class CalendarAgent {
 
-    private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
-    private static final List<String> SCOPES = List.of(CalendarScopes.CALENDAR);
     private static final DateTimeFormatter VIS_FORMAT =
             DateTimeFormatter.ofPattern("EEEE d. MMMM yyyy 'kl.' HH:mm", Locale.forLanguageTag("nn"));
 
-    private final String credentialsPath;
-    private final String tokensDir;
+    private final GoogleAuth googleAuth;
     private final String calendarId;
     private final ZoneId zone;
 
@@ -63,12 +44,10 @@ public class CalendarAgent {
 
     private Calendar service;
 
-    public CalendarAgent(@Value("${google.calendar.credentials-path:credentials.json}") String credentialsPath,
-                         @Value("${google.calendar.tokens-dir:tokens}") String tokensDir,
+    public CalendarAgent(GoogleAuth googleAuth,
                          @Value("${google.calendar.id:primary}") String calendarId,
                          @Value("${google.calendar.timezone:Europe/Oslo}") String timezone) {
-        this.credentialsPath = credentialsPath;
-        this.tokensDir = tokensDir;
+        this.googleAuth = googleAuth;
         this.calendarId = calendarId;
         this.zone = ZoneId.of(timezone);
     }
@@ -228,33 +207,14 @@ public class CalendarAgent {
     }
 
     /**
-     * Lagar Calendar-klienten første gong han trengst, og loggar inn via nettlesaren om det ikkje finst lagra tilgang.
+     * Lagar Calendar-klienten første gong han trengst. Finst det ikkje lagra tilgang, loggar GoogleAuth inn via nettlesaren.
      */
     private synchronized Calendar calendar() throws Exception {
         if (service != null) {
             return service;
         }
-        File credentialsFile = new File(credentialsPath);
-        if (!credentialsFile.exists()) {
-            throw new IllegalStateException("Finn ikkje OAuth-fila " + credentialsFile.getAbsolutePath()
-                    + ". Last ned ein OAuth-klient (Desktop app) frå Google Cloud Console og lagre han der.");
-        }
-
-        NetHttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
-        GoogleClientSecrets secrets;
-        try (Reader reader = new FileReader(credentialsFile, StandardCharsets.UTF_8)) {
-            secrets = GoogleClientSecrets.load(JSON_FACTORY, reader);
-        }
-
-        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(transport, JSON_FACTORY, secrets, SCOPES)
-                .setDataStoreFactory(new FileDataStoreFactory(new File(tokensDir)))
-                .setAccessType("offline")
-                .build();
-        LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
-        Credential credential = new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
-
-        service = new Calendar.Builder(transport, JSON_FACTORY, credential)
-                .setApplicationName("AI-Manager")
+        service = new Calendar.Builder(googleAuth.transport(), GoogleAuth.JSON_FACTORY, googleAuth.credential())
+                .setApplicationName(GoogleAuth.APPLICATION_NAME)
                 .build();
         return service;
     }

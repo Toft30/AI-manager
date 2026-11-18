@@ -38,7 +38,8 @@ build/
 ### Mac OS ###
 .DS_Store
 ### Lokale klonar ###
-Test/
+# Berre mappa i rota: utan «/» treff mønsteret òg src/test/ på Windows, der store og små bokstavar er like.
+/Test/
 
 ### Google Calendar OAuth ###
 credentials.json
