@@ -40,9 +40,9 @@ public class TaskOrchestratorService {
         String description = task.getDescription();
 
         // 1. Be planleggjaren om å bryte ned oppgåva.
-        TaskDecompositionResult plan = agentRouter.plan(description, MAX_SUBTASKS);
-        List<String> steps = plan == null || plan.getSubTasks() == null ? List.of()
-                : plan.getSubTasks().stream().filter(s -> s != null && !s.isBlank()).limit(MAX_SUBTASKS).toList();
+        TaskPlan plan = agentRouter.plan(description, MAX_SUBTASKS);
+        List<String> steps = plan == null || plan.subtasks() == null ? List.of()
+                : plan.subtasks().stream().filter(s -> s != null && !s.isBlank()).limit(MAX_SUBTASKS).toList();
         if (steps.isEmpty()) {
             task.setStatus(TaskStatus.FEILA);
             task.setResult("Eg klarte ikkje å bryte ned oppgåva.");
@@ -58,6 +58,7 @@ public class TaskOrchestratorService {
         // 3. Delegere kvar deloppgåve. Statusen blir lesen på nytt frå databasen etterpå,
         //    sidan modellen kan ha sett ho til FEILA med TaskUpdaterTool.
         List<String> outcomes = new ArrayList<>();
+        List<String> answers = new ArrayList<>();
         boolean allDone = true;
         for (int i = 0; i < ids.size(); i++) {
             SubTask subTask = subTaskRepository.findById(ids.get(i)).orElseThrow();
@@ -70,11 +71,11 @@ public class TaskOrchestratorService {
             try {
                 answer = agentRouter.ask(prompt);
             } catch (Exception e) {
+                String reason = TaskController.spokenError(e);
                 subTask.setStatus(TaskStatus.FEILA);
-                subTask.setResult("Feil: " + e.getMessage());
+                subTask.setResult("Feil: " + reason);
                 subTaskRepository.save(subTask);
-                return finish(task.getId(), TaskStatus.FEILA,
-                        "Eg stoppa ved deloppgåve " + (i + 1) + " fordi Gemini ikkje svarte. Prøv igjen litt seinare.");
+                return finish(task.getId(), TaskStatus.FEILA, "Eg stoppa ved deloppgåve " + (i + 1) + ". " + reason);
             }
 
             SubTask fresh = subTaskRepository.findById(subTask.getId()).orElseThrow();
@@ -84,11 +85,12 @@ public class TaskOrchestratorService {
             subTaskRepository.save(fresh);
 
             allDone &= !failed;
+            answers.add(answer);
             outcomes.add((i + 1) + ". " + fresh.getDescription() + (failed ? " (feila): " : ": ") + answer);
         }
 
         // 4. Éi deloppgåve treng inga oppsummering; fleire får eitt kort, samla svar.
-        String summary = outcomes.size() == 1 ? stripNumber(outcomes.get(0)) : summarize(description, outcomes);
+        String summary = answers.size() == 1 ? answers.get(0) : summarize(description, outcomes);
         return finish(task.getId(), allDone ? TaskStatus.FULLFØRT : TaskStatus.FEILA, summary);
     }
 
@@ -99,11 +101,6 @@ public class TaskOrchestratorService {
         } catch (Exception e) {
             return String.join(" ", outcomes);
         }
-    }
-
-    private static String stripNumber(String outcome) {
-        int colon = outcome.indexOf(": ");
-        return colon >= 0 ? outcome.substring(colon + 2) : outcome;
     }
 
     private Task finish(Long taskId, TaskStatus status, String result) {

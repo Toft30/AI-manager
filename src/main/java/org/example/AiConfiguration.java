@@ -117,6 +117,7 @@ public class AiConfiguration {
                     .build();
             routes.add(new AgentRouter.Route(models.get(i), agent, planner));
         }
-        return new AgentRouter(routes, chatMemory, calendarAgent::getCurrentDateTime, dialectMemory::render);
+        return new AgentRouter(routes, chatMemory, calendarAgent::getCurrentDateTime, dialectMemory::render,
+                calendarAgent::changeCount);
     }
 }
