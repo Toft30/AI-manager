@@ -8,6 +8,7 @@
 var SILENCE_MS = 950;       // så lenge stille før ytringa er ferdig
 var MIN_SPEECH_MS = 350;    // kortare enn dette er eit host, ikkje ei setning
 var MAX_SPEECH_MS = 20000;  // hard grense så ein mikrofon som heng ikkje tek opp for alltid
+var NO_SPEECH_MS = 8000;    // MIC gir opp om du ikkje seier noko innan dette
 var GREETING = "God dag. Alle system er oppe og går. Kva kan eg hjelpe deg med?";
 
 var $ = function (id) { return document.getElementById(id); };
@@ -265,12 +266,48 @@ function transcribe(blob) {
 
 function heard(text) {
     if (text) ask(text);
-    else if (state.mode === "listening") setMode("idle");
+    else if (state.mode === "listening" || state.mode === "thinking") setMode("idle");
 }
 
-// Klikk MIC for å byrje, klikk att for å sende.
+/*
+ * Taleaktivitet: støygolvet følgjer rommet medan det er stille, så terskelen
+ * held seg rett sjølv om bakgrunnsstøyen endrar seg.
+ */
+var Vad = {
+    floor: 0.005,
+    threshold: function () { return Math.max(Vad.floor * 3, 0.015); },
+    loud: function () {
+        var level = micLevel(), t = Vad.threshold();
+        if (level < t) Vad.floor += (level - Vad.floor) * (level < Vad.floor ? 0.2 : 0.01);
+        $("meterThreshold").style.left = Math.min(100, t * 400) + "%";
+        return level > t;
+    }
+};
+
+// Klikk MIC og snakk: han sender sjølv når du tek pause. Klikk att for å sende med ein gong.
 var PushToTalk = {
-    rec: null, chunks: [], cancelled: false,
+    rec: null, chunks: [], cancelled: false, timer: null,
+    began: 0, voiceStart: 0, lastVoice: 0, spoke: false,
+
+    tick: function () {
+        var now = Date.now();
+        if (Vad.loud()) {
+            if (!PushToTalk.spoke) PushToTalk.voiceStart = now;
+            PushToTalk.spoke = true;
+            PushToTalk.lastVoice = now;
+        }
+        if (now - PushToTalk.began > MAX_SPEECH_MS) return PushToTalk.stop();
+        if (!PushToTalk.spoke) {
+            if (now - PushToTalk.began > NO_SPEECH_MS) PushToTalk.cancel();
+            return;
+        }
+        if (now - PushToTalk.lastVoice > SILENCE_MS) {
+            // Eit kort host eller klikk er ikkje ei setning: vent vidare.
+            if (PushToTalk.lastVoice - PushToTalk.voiceStart < MIN_SPEECH_MS) PushToTalk.spoke = false;
+            else PushToTalk.stop();
+        }
+    },
+
     start: function () {
         if (!state.elevenlabs) return browserRecognize();
         stopAudio();
@@ -283,13 +320,19 @@ var PushToTalk = {
             PushToTalk.rec.onstop = function () {
                 var blob = new Blob(PushToTalk.chunks, { type: PushToTalk.rec.mimeType });
                 PushToTalk.rec = null;
+                clearInterval(PushToTalk.timer);
                 $("micBtn").classList.remove("on");
-                if (PushToTalk.cancelled) return;
+                if (!Live.on) $("meterThreshold").style.display = "none";
+                if (PushToTalk.cancelled) { if (state.mode === "listening") setMode("idle"); return; }
                 setMode("thinking");
                 transcribe(blob).then(heard).catch(function (e) { addLine("error", "Lytting feila: " + e.message); setMode("idle"); });
             };
             PushToTalk.rec.start();
+            PushToTalk.began = Date.now();
+            PushToTalk.spoke = false;
+            PushToTalk.timer = setInterval(PushToTalk.tick, 30);
             $("micBtn").classList.add("on");
+            $("meterThreshold").style.display = "block";
             setMode("listening");
         }).catch(function (e) { addLine("error", "Fekk ikkje tilgang til mikrofonen: " + e.message); });
     },
@@ -320,7 +363,7 @@ function browserRecognize() {
  * transkriberer seg sjølv.
  */
 var Live = {
-    on: false, timer: null, rec: null, chunks: [], threshold: 0.02,
+    on: false, timer: null, rec: null, chunks: [],
     recording: false, voiceStart: 0, lastVoice: 0, resumeAt: 0,
 
     start: function () {
@@ -331,7 +374,6 @@ var Live = {
             Live.on = true;
             $("liveBtn").classList.add("on");
             $("meterThreshold").style.display = "block";
-            $("meterThreshold").style.left = Math.min(100, Live.threshold * 400) + "%";
             setMode("idle");
             Live.timer = setInterval(Live.tick, 30);
         }).catch(function (e) { addLine("error", "Fekk ikkje tilgang til mikrofonen: " + e.message); });
@@ -354,8 +396,7 @@ var Live = {
             setTimeout(function () {
                 clearInterval(t);
                 samples.sort(function (a, b) { return a - b; });
-                var floor = samples[Math.floor(samples.length * 0.8)] || 0.005;
-                Live.threshold = Math.max(floor * 3, 0.015);
+                Vad.floor = samples[Math.floor(samples.length * 0.8)] || 0.005;
                 resolve();
             }, 900);
         });
@@ -367,7 +408,7 @@ var Live = {
         if (suspended) { Live.resumeAt = now + 400; return; }
         if (now < Live.resumeAt) return;
 
-        var loud = micLevel() > Live.threshold;
+        var loud = Vad.loud();
         if (!Live.recording) {
             if (loud) Live.begin(now);
             return;
